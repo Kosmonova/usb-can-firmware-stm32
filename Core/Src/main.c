@@ -67,27 +67,6 @@ static void MX_USART1_UART_Init(void);
   */
 int main(void)
 {
-  /* USER CODE BEGIN 1 */
-  #ifdef __GNUC__
-  /* With GCC/RAISONANCE, small printf (option LD Linker->Libraries->Small printf
-     set to 'Yes') calls __io_putchar() */
-  #define PUTCHAR_PROTOTYPE int __io_putchar(int ch)
-#else
-  #define PUTCHAR_PROTOTYPE int fputc(int ch, FILE *f)
-#endif /* __GNUC__ */
-/**
-  * @brief  Retargets the C library printf function to the USART.
-  * @param  None
-  * @retval None
-  */
-PUTCHAR_PROTOTYPE
-{
-  /* Place your implementation of fputc here */
-  /* e.g. write a character to the EVAL_COM1 and Loop until the end of transmission */
-  HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, 0xFFFF);
-  
-  return ch;
-}
 
 CAN_RxHeaderTypeDef rxHeader; //CAN Bus Transmit Header
 CAN_TxHeaderTypeDef txHeader; //CAN Bus Receive Header
@@ -147,6 +126,7 @@ uint8_t transmitBuffer[] = "welcome to www.waveshere.com !!!\n";
     /* USER CODE END WHILE */
     HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
     HAL_Delay(1000);	
+	    HAL_UART_Receive_IT(&huart1, transmitBuffer, 32);
 HAL_UART_Transmit_IT(&huart1, transmitBuffer, strlen(transmitBuffer));
     /* USER CODE BEGIN 3 */
   }
