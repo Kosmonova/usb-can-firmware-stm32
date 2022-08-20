@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+UART_HandleTypeDef huart1;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -139,7 +139,7 @@ uint32_t canMailbox; //CAN Bus Mail box variable
   HAL_CAN_Start(&hcan); //Initialize CAN Bus
   HAL_CAN_ActivateNotification(&hcan,CAN_IT_RX_FIFO0_MSG_PENDING);// Initialize CAN Bus Rx Interrupt
   /* USER CODE END 2 */
-
+uint8_t transmitBuffer[] = "welcome to www.waveshere.com !!!\n";
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
@@ -147,6 +147,7 @@ uint32_t canMailbox; //CAN Bus Mail box variable
     /* USER CODE END WHILE */
     HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
     HAL_Delay(1000);	
+HAL_UART_Transmit_IT(&huart1, transmitBuffer, strlen(transmitBuffer));
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
