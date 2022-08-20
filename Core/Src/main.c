@@ -44,7 +44,10 @@ CAN_HandleTypeDef hcan;
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
-
+uint8_t aTxStartMessage[] = "\r\n****UART-Hyperterminal communication based on IT ****\r\nEnter 10 characters using keyboard :\r\n";
+  
+/* Buffer used for reception */
+uint8_t aRxBuffer[20];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -114,6 +117,9 @@ uint32_t canMailbox; //CAN Bus Mail box variable
   MX_CAN_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  
+    HAL_UART_Transmit_IT(&huart1, (uint8_t *)aTxStartMessage, sizeof(aTxStartMessage));
+    HAL_UART_Receive_IT(&huart1, (uint8_t *)aRxBuffer, 10);
   HAL_CAN_ConfigFilter(&hcan,&canfil); //Initialize CAN Filter
   HAL_CAN_Start(&hcan); //Initialize CAN Bus
   HAL_CAN_ActivateNotification(&hcan,CAN_IT_RX_FIFO0_MSG_PENDING);// Initialize CAN Bus Rx Interrupt
@@ -126,8 +132,8 @@ uint8_t transmitBuffer[] = "welcome to www.waveshere.com !!!\n";
     /* USER CODE END WHILE */
     HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
     HAL_Delay(1000);	
-	    HAL_UART_Receive_IT(&huart1, transmitBuffer, 32);
-HAL_UART_Transmit_IT(&huart1, transmitBuffer, strlen(transmitBuffer));
+// 	    HAL_UART_Receive_IT(&huart1, transmitBuffer, 32);
+// HAL_UART_Transmit_IT(&huart1, transmitBuffer, strlen(transmitBuffer));
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

@@ -2607,6 +2607,8 @@ __weak void HAL_UART_TxHalfCpltCallback(UART_HandleTypeDef *huart)
    */
 }
 
+extern UART_HandleTypeDef huart1;
+extern uint8_t aRxBuffer[20];
 /**
   * @brief  Rx Transfer completed callbacks.
   * @param  huart  Pointer to a UART_HandleTypeDef structure that contains
@@ -2620,6 +2622,8 @@ __weak void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   /* NOTE: This function should not be modified, when the callback is needed,
            the HAL_UART_RxCpltCallback could be implemented in the user file
    */
+  
+    HAL_UART_Transmit(&huart1, (uint8_t *)aRxBuffer, 10,0xFFFF);
 }
 
 /**
