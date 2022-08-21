@@ -68,12 +68,25 @@ static void MX_USART1_UART_Init(void);
   * @brief  The application entry point.
   * @retval int
   */
+CAN_RxHeaderTypeDef rxHeader; //CAN Bus Transmit Header
+uint8_t canRX[8] = {0,0,0,0,0,0,0,0};  //CAN Bus Receive Buffer
+
+__weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(hcan);
+
+  /* NOTE : This function Should not be modified, when the callback is needed,
+            the HAL_CAN_RxFifo0MsgPendingCallback could be implemented in the
+            user file
+   */
+	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, canRX); //Receive CAN bus message to canRX buffer
+    HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
+}
 int main(void)
 {
 
-CAN_RxHeaderTypeDef rxHeader; //CAN Bus Transmit Header
 CAN_TxHeaderTypeDef txHeader; //CAN Bus Receive Header
-uint8_t canRX[8] = {0,0,0,0,0,0,0,0};  //CAN Bus Receive Buffer
 CAN_FilterTypeDef canfil; //CAN Bus Filter
 uint32_t canMailbox; //CAN Bus Mail box variable
 
@@ -130,10 +143,12 @@ uint8_t transmitBuffer[] = "welcome to www.waveshere.com !!!\n";
   while (1)
   {
     /* USER CODE END WHILE */
-    HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
+//     HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
+	uint8_t csend[] = {0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08}; // Tx Buffer
+HAL_CAN_AddTxMessage(&hcan,&txHeader,csend,&canMailbox); // Send Message
     HAL_Delay(1000);	
 // 	    HAL_UART_Receive_IT(&huart1, transmitBuffer, 32);
-// HAL_UART_Transmit_IT(&huart1, transmitBuffer, strlen(transmitBuffer));
+HAL_UART_Transmit_IT(&huart1, transmitBuffer, strlen(transmitBuffer));
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
