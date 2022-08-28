@@ -82,16 +82,28 @@ __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 	uint8_t canRX[8] = {0,0,0,0,0,0,0,0};  //CAN Bus Receive Buffer
 	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, canRX); //Receive CAN bus message to canRX buffer
 	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
-	uint8_t transmitBuffer[4 + rxHeader.DLC];
+	uint8_t transmitBuffer[15];
+	int posBuffer = 0;
+	transmitBuffer[posBuffer++] = 0xAA;
+	transmitBuffer[posBuffer++] = 0xC0 + rxHeader.DLC +
+		(CAN_ID_EXT == rxHeader.IDE ? 1 << 5 : 0);
 
 	if(rxHeader.IDE == CAN_ID_STD)
-		((uint32_t*)transmitBuffer)[0] = rxHeader.StdId;
+	{
+		*((uint16_t*)(transmitBuffer + posBuffer)) = rxHeader.StdId;
+		posBuffer += 2;
+	}
 	else
-		((uint32_t*)transmitBuffer)[0] = rxHeader.ExtId;
+	{
+		*((uint32_t*)(transmitBuffer + posBuffer)) = rxHeader.ExtId;
+		posBuffer += 4;
+	}
 
-	memcpy(transmitBuffer + 4, canRX, rxHeader.DLC);
+	memcpy(transmitBuffer + posBuffer, canRX, rxHeader.DLC);
+	posBuffer += rxHeader.DLC;
+	transmitBuffer[posBuffer++] = 0x55;
 
-	HAL_UART_Transmit_IT(&huart1, transmitBuffer, sizeof(transmitBuffer));
+	HAL_UART_Transmit_IT(&huart1, transmitBuffer, posBuffer);
 }
 
 
@@ -120,7 +132,7 @@ __weak void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	txHeader.TransmitGlobalTime = DISABLE;
 	uint8_t csend[8]; // Tx Buffer
 	uint32_t canMailbox; //CAN Bus Mail box variable
-	
+
 	HAL_CAN_AddTxMessage(&hcan,&txHeader,aRxBuffer + 4,&canMailbox);
 }
 
