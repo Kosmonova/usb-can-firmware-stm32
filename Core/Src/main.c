@@ -93,6 +93,38 @@ __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 
 	HAL_UART_Transmit_IT(&huart1, transmitBuffer, sizeof(transmitBuffer));
 }
+
+
+/**
+  * @brief  Rx Transfer completed callbacks.
+  * @param  huart  Pointer to a UART_HandleTypeDef structure that contains
+  *                the configuration information for the specified UART module.
+  * @retval None
+  */
+__weak void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(huart);
+  /* NOTE: This function should not be modified, when the callback is needed,
+           the HAL_UART_RxCpltCallback could be implemented in the user file
+   */
+
+	HAL_UART_Receive_IT(huart, aRxBuffer, 12);
+	CAN_TxHeaderTypeDef txHeader; //CAN Bus Receive Header
+
+	txHeader.DLC = 8; // Number of bites to be transmitted max- 8
+	txHeader.IDE = CAN_ID_EXT;
+	txHeader.RTR = CAN_RTR_DATA;
+	txHeader.StdId = 0x030;
+	txHeader.ExtId = ((uint32_t*)aRxBuffer)[0];
+	txHeader.TransmitGlobalTime = DISABLE;
+	uint8_t csend[8]; // Tx Buffer
+	uint32_t canMailbox; //CAN Bus Mail box variable
+	
+	HAL_CAN_AddTxMessage(&hcan,&txHeader,aRxBuffer + 4,&canMailbox);
+}
+
+
 int main(void)
 {
 
@@ -141,7 +173,7 @@ uint32_t canMailbox; //CAN Bus Mail box variable
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   
-    HAL_UART_Transmit_IT(&huart1, (uint8_t *)aTxStartMessage, sizeof(aTxStartMessage));
+//     HAL_UART_Transmit_IT(&huart1, (uint8_t *)aTxStartMessage, sizeof(aTxStartMessage));
     HAL_UART_Receive_IT(&huart1, (uint8_t *)aRxBuffer, 10);
   HAL_CAN_ConfigFilter(&hcan,&canfil); //Initialize CAN Filter
   HAL_CAN_Start(&hcan); //Initialize CAN Bus
@@ -155,7 +187,7 @@ uint8_t transmitBuffer[] = "welcome to www.waveshere.com !!!\n";
     /* USER CODE END WHILE */
 //     HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
 	uint8_t csend[] = {0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08}; // Tx Buffer
-HAL_CAN_AddTxMessage(&hcan,&txHeader,csend,&canMailbox); // Send Message
+// HAL_CAN_AddTxMessage(&hcan,&txHeader,csend,&canMailbox); // Send Message
     HAL_Delay(1000);	
 // 	    HAL_UART_Receive_IT(&huart1, transmitBuffer, 32);
 // HAL_UART_Transmit_IT(&huart1, transmitBuffer, strlen(transmitBuffer));
