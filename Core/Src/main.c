@@ -115,6 +115,9 @@ void USAR_UART_IDLECallback(UART_HandleTypeDef *huart)
 
 void configureCanBus(uint8_t dataLen)
 {
+	if(dataLen < 19)
+		return;
+
 	if(receive_buff[0] != 0xAA || receive_buff[1] != 0x55 ||
 		receive_buff[2] != 0x12)
 		return;
@@ -124,6 +127,16 @@ void configureCanBus(uint8_t dataLen)
 		return;
 
 	canTypeFrame = receive_buff[4];
+	int i, checksum;
+
+	checksum = 0;
+	for (i = 2; i < 19; i++)
+		checksum += receive_buff[i];
+
+	checksum &= 0xff;
+
+	if(receive_buff[19] != checksum)
+		return;
 
 	switch(receive_buff[3])
 	{
