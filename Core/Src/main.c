@@ -40,16 +40,34 @@ uint8_t receive_buff[255];                //Define the receive array
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-CAN_HandleTypeDef hcan;
 
+typedef enum {
+	CAN_BUS_FRAME_NONE = 0x00,
+	CANUSB_FRAME_STANDARD = 0x01,
+	CANUSB_FRAME_EXTENDED = 0x02,
+} CANUSB_FRAME;
+
+typedef enum {
+  CANUSB_SPEED_1000000 = 0x01,
+  CANUSB_SPEED_800000  = 0x02,
+  CANUSB_SPEED_500000  = 0x03,
+  CANUSB_SPEED_400000  = 0x04,
+  CANUSB_SPEED_250000  = 0x05,
+  CANUSB_SPEED_200000  = 0x06,
+  CANUSB_SPEED_125000  = 0x07,
+  CANUSB_SPEED_100000  = 0x08,
+  CANUSB_SPEED_50000   = 0x09,
+  CANUSB_SPEED_20000   = 0x0a,
+  CANUSB_SPEED_10000   = 0x0b,
+  CANUSB_SPEED_5000    = 0x0c,
+} CANUSB_SPEED;
+
+CANUSB_FRAME canTypeFrame = CAN_BUS_FRAME_NONE;
+CAN_HandleTypeDef hcan;
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
-uint8_t aTxStartMessage[] = "\r\n****UART-Hyperterminal communication based on IT ****\r\nEnter 10 characters using keyboard :\r\n";
-  
-/* Buffer used for reception */
-uint8_t aRxBuffer[20];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,9 +89,7 @@ void USER_UART_IRQHandler(UART_HandleTypeDef *huart)
         if(RESET != __HAL_UART_GET_FLAG(&huart1, UART_FLAG_IDLE))   //Judging whether it is idle interruption
         {
             __HAL_UART_CLEAR_IDLEFLAG(&huart1);                     //Clear idle interrupt sign (otherwise it will continue to enter interrupt)
-//             printf("\r\nUART1 Idle IQR Detected\r\n");
             USAR_UART_IDLECallback(huart);                          //Call interrupt handler
-//     HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
         }
     }
 }
@@ -82,11 +98,12 @@ void USAR_UART_IDLECallback(UART_HandleTypeDef *huart)
 {
 	//Stop this DMA transmission
 	HAL_UART_DMAStop(&huart1);  
-														
+
 	//Calculate the length of the received data
 	uint8_t data_length  = BUFFER_SIZE - __HAL_DMA_GET_COUNTER(huart->hdmarx);   
 
 	uartToCanDataProcess(data_length);
+	configureCanBus(data_length);
 
 	//Zero Receiving Buffer
 	memset(receive_buff,0,data_length);                                            
@@ -94,6 +111,88 @@ void USAR_UART_IDLECallback(UART_HandleTypeDef *huart)
 
 	//Restart to start DMA transmission of 255 bytes of data at a time
 	HAL_UART_Receive_DMA(&huart1, (uint8_t*)receive_buff, 255);                  
+}
+
+void configureCanBus(uint8_t dataLen)
+{
+	if(receive_buff[0] != 0xAA || receive_buff[1] != 0x55 ||
+		receive_buff[2] != 0x12)
+		return;
+
+	if(receive_buff[4] != CANUSB_FRAME_STANDARD && receive_buff[4] !=
+		CANUSB_FRAME_EXTENDED)
+		return;
+
+	canTypeFrame = receive_buff[4];
+
+	switch(receive_buff[3])
+	{
+		case CANUSB_SPEED_1000000:
+			hcan.Init.Prescaler = 9;
+			hcan.Init.TimeSeg1 = CAN_BS1_2TQ;
+			hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
+			break;
+		case CANUSB_SPEED_800000:
+			hcan.Init.Prescaler = 9;
+			hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
+			hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
+			break;
+		case CANUSB_SPEED_500000:
+			hcan.Init.Prescaler = 9;
+			hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
+			hcan.Init.TimeSeg2 = CAN_BS2_4TQ;
+			break;
+		case CANUSB_SPEED_400000:
+			hcan.Init.Prescaler = 9;
+			hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
+			hcan.Init.TimeSeg2 = CAN_BS2_6TQ;
+			break;
+		case CANUSB_SPEED_250000:
+			hcan.Init.Prescaler = 9;
+			hcan.Init.TimeSeg1 = CAN_BS1_11TQ;
+			hcan.Init.TimeSeg2 = CAN_BS2_4TQ;
+			break;
+		case CANUSB_SPEED_200000:
+			hcan.Init.Prescaler = 9;
+			hcan.Init.TimeSeg1 = CAN_BS1_15TQ;
+			hcan.Init.TimeSeg2 = CAN_BS2_4TQ;
+			break;
+		case CANUSB_SPEED_125000:
+			hcan.Init.Prescaler = 16;
+			hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
+			hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
+			break;
+		case CANUSB_SPEED_100000:
+			hcan.Init.Prescaler = 15;
+			hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
+			hcan.Init.TimeSeg2 = CAN_BS2_7TQ;
+			break;
+		case CANUSB_SPEED_50000:
+			hcan.Init.Prescaler = 30;
+			hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
+			hcan.Init.TimeSeg2 = CAN_BS2_7TQ;
+			break;
+		case CANUSB_SPEED_20000:
+			hcan.Init.Prescaler = 72;
+			hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
+			hcan.Init.TimeSeg2 = CAN_BS2_8TQ;
+			break;
+		case CANUSB_SPEED_10000:
+			hcan.Init.Prescaler = 144;
+			hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
+			hcan.Init.TimeSeg2 = CAN_BS2_8TQ;
+			break;
+		case CANUSB_SPEED_5000:
+			hcan.Init.Prescaler = 288;
+			hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
+			hcan.Init.TimeSeg2 = CAN_BS2_8TQ;
+			break;
+	}
+
+	if (HAL_CAN_Init(&hcan) != HAL_OK)
+		Error_Handler();
+
+	HAL_CAN_Start(&hcan);
 }
 
 void uartToCanDataProcess(uint8_t dataLen)
@@ -191,7 +290,6 @@ __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	CAN_TxHeaderTypeDef txHeader; //CAN Bus Receive Header
 	CAN_FilterTypeDef canfil; //CAN Bus Filter
 	uint32_t canMailbox; //CAN Bus Mail box variable
 
@@ -205,13 +303,6 @@ int main(void)
 	canfil.FilterScale = CAN_FILTERSCALE_32BIT;
 	canfil.FilterActivation = ENABLE;
 	canfil.SlaveStartFilterBank = 14;
-
-	txHeader.DLC = 8; // Number of bites to be transmitted max- 8
-	txHeader.IDE = CAN_ID_STD;
-	txHeader.RTR = CAN_RTR_DATA;
-	txHeader.StdId = 0x030;
-	txHeader.ExtId = 0x02;
-	txHeader.TransmitGlobalTime = DISABLE;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -252,9 +343,10 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-    HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
-	HAL_Delay(1000); 
+	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
+	HAL_Delay(1000);
     /* USER CODE BEGIN 3 */
+	
   }
   /* USER CODE END 3 */
 }
