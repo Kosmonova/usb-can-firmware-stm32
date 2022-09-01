@@ -21,12 +21,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-UART_HandleTypeDef huart1;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+#define BUFFER_SIZE 255
+UART_HandleTypeDef huart1;
+uint8_t receive_buff[255];                //Define the receive array
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -42,6 +43,7 @@ UART_HandleTypeDef huart1;
 CAN_HandleTypeDef hcan;
 
 UART_HandleTypeDef huart1;
+DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
 uint8_t aTxStartMessage[] = "\r\n****UART-Hyperterminal communication based on IT ****\r\nEnter 10 characters using keyboard :\r\n";
@@ -53,6 +55,7 @@ uint8_t aRxBuffer[20];
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_CAN_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
@@ -61,13 +64,86 @@ static void MX_USART1_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void USER_UART_IRQHandler(UART_HandleTypeDef *huart)
+{
+    if(USART1 == huart1.Instance)                                   //Determine whether it is serial port 1
+    {
+        if(RESET != __HAL_UART_GET_FLAG(&huart1, UART_FLAG_IDLE))   //Judging whether it is idle interruption
+        {
+            __HAL_UART_CLEAR_IDLEFLAG(&huart1);                     //Clear idle interrupt sign (otherwise it will continue to enter interrupt)
+//             printf("\r\nUART1 Idle IQR Detected\r\n");
+            USAR_UART_IDLECallback(huart);                          //Call interrupt handler
+//     HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
+        }
+    }
+}
 
-/* USER CODE END 0 */
+void USAR_UART_IDLECallback(UART_HandleTypeDef *huart)
+{
+	//Stop this DMA transmission
+	HAL_UART_DMAStop(&huart1);  
+														
+	//Calculate the length of the received data
+	uint8_t data_length  = BUFFER_SIZE - __HAL_DMA_GET_COUNTER(huart->hdmarx);   
 
-/**
-  * @brief  The application entry point.
-  * @retval int
-  */
+	uartToCanDataProcess(data_length);
+
+	//Zero Receiving Buffer
+	memset(receive_buff,0,data_length);                                            
+	data_length = 0;
+
+	//Restart to start DMA transmission of 255 bytes of data at a time
+	HAL_UART_Receive_DMA(&huart1, (uint8_t*)receive_buff, 255);                  
+}
+
+void uartToCanDataProcess(uint8_t dataLen)
+{
+	uint8_t csend[8]; // Tx Buffer
+	uint32_t canMailbox; //CAN Bus Mail box variable
+	CAN_TxHeaderTypeDef txHeader; //CAN Bus Receive Header
+
+	if(receive_buff[0] != 0xAA)
+		return;
+	
+	if((receive_buff[1] & 0xC0) != 0xC0)
+		return;
+
+	uint8_t canDataLen = receive_buff[1] & 0x0F;
+
+	if(canDataLen > 8)
+		return;
+
+	txHeader.DLC = canDataLen;
+	txHeader.RTR = CAN_RTR_DATA;
+	txHeader.TransmitGlobalTime = DISABLE;
+
+	if(receive_buff[1] & (1 << 5))
+	{
+		if(dataLen < canDataLen + 7)
+			return;
+
+		if(receive_buff[canDataLen + 6] != 0x55)
+			return;
+
+		txHeader.IDE = CAN_ID_EXT;
+		txHeader.ExtId = *((uint32_t*)(receive_buff + 2));
+		memcpy(csend, receive_buff + 6, canDataLen);
+	}
+	else
+	{
+		if(dataLen < canDataLen + 5)
+			return;
+
+		if(receive_buff[canDataLen + 4] != 0x55)
+			return;
+
+		txHeader.IDE = CAN_ID_STD;
+		txHeader.StdId = *((uint16_t*)(receive_buff + 2));
+		memcpy(csend, receive_buff + 4, canDataLen);
+	}
+
+	HAL_CAN_AddTxMessage(&hcan, &txHeader ,csend ,&canMailbox);
+}
 
 __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
@@ -79,14 +155,14 @@ __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
             user file
    */
 	CAN_RxHeaderTypeDef rxHeader; //CAN Bus Transmit Header
-	uint8_t canRX[8] = {0,0,0,0,0,0,0,0};  //CAN Bus Receive Buffer
+	uint8_t canRX[8];  //CAN Bus Receive Buffer
 	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, canRX); //Receive CAN bus message to canRX buffer
 	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
 	uint8_t transmitBuffer[15];
 	int posBuffer = 0;
 	transmitBuffer[posBuffer++] = 0xAA;
 	transmitBuffer[posBuffer++] = 0xC0 + rxHeader.DLC +
-		(CAN_ID_EXT == rxHeader.IDE ? 1 << 5 : 0);
+			(CAN_ID_EXT == rxHeader.IDE ? 1 << 5 : 0);
 
 	if(rxHeader.IDE == CAN_ID_STD)
 	{
@@ -106,61 +182,36 @@ __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 	HAL_UART_Transmit_IT(&huart1, transmitBuffer, posBuffer);
 }
 
+/* USER CODE END 0 */
 
 /**
-  * @brief  Rx Transfer completed callbacks.
-  * @param  huart  Pointer to a UART_HandleTypeDef structure that contains
-  *                the configuration information for the specified UART module.
-  * @retval None
+  * @brief  The application entry point.
+  * @retval int
   */
-__weak void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-  /* Prevent unused argument(s) compilation warning */
-  UNUSED(huart);
-  /* NOTE: This function should not be modified, when the callback is needed,
-           the HAL_UART_RxCpltCallback could be implemented in the user file
-   */
-
-	HAL_UART_Receive_IT(huart, aRxBuffer, 12);
-	CAN_TxHeaderTypeDef txHeader; //CAN Bus Receive Header
-
-	txHeader.DLC = 8; // Number of bites to be transmitted max- 8
-	txHeader.IDE = CAN_ID_EXT;
-	txHeader.RTR = CAN_RTR_DATA;
-	txHeader.StdId = 0x030;
-	txHeader.ExtId = ((uint32_t*)aRxBuffer)[0];
-	txHeader.TransmitGlobalTime = DISABLE;
-	uint8_t csend[8]; // Tx Buffer
-	uint32_t canMailbox; //CAN Bus Mail box variable
-
-	HAL_CAN_AddTxMessage(&hcan,&txHeader,aRxBuffer + 4,&canMailbox);
-}
-
-
 int main(void)
 {
+  /* USER CODE BEGIN 1 */
+	CAN_TxHeaderTypeDef txHeader; //CAN Bus Receive Header
+	CAN_FilterTypeDef canfil; //CAN Bus Filter
+	uint32_t canMailbox; //CAN Bus Mail box variable
 
-CAN_TxHeaderTypeDef txHeader; //CAN Bus Receive Header
-CAN_FilterTypeDef canfil; //CAN Bus Filter
-uint32_t canMailbox; //CAN Bus Mail box variable
+	canfil.FilterBank = 0;
+	canfil.FilterMode = CAN_FILTERMODE_IDMASK;
+	canfil.FilterFIFOAssignment = CAN_RX_FIFO0;
+	canfil.FilterIdHigh = 0;
+	canfil.FilterIdLow = 0;
+	canfil.FilterMaskIdHigh = 0;
+	canfil.FilterMaskIdLow = 0;
+	canfil.FilterScale = CAN_FILTERSCALE_32BIT;
+	canfil.FilterActivation = ENABLE;
+	canfil.SlaveStartFilterBank = 14;
 
-  canfil.FilterBank = 0;
-  canfil.FilterMode = CAN_FILTERMODE_IDMASK;
-  canfil.FilterFIFOAssignment = CAN_RX_FIFO0;
-  canfil.FilterIdHigh = 0;
-  canfil.FilterIdLow = 0;
-  canfil.FilterMaskIdHigh = 0;
-  canfil.FilterMaskIdLow = 0;
-  canfil.FilterScale = CAN_FILTERSCALE_32BIT;
-  canfil.FilterActivation = ENABLE;
-  canfil.SlaveStartFilterBank = 14;
-
-  txHeader.DLC = 8; // Number of bites to be transmitted max- 8
-  txHeader.IDE = CAN_ID_STD;
-  txHeader.RTR = CAN_RTR_DATA;
-  txHeader.StdId = 0x030;
-  txHeader.ExtId = 0x02;
-  txHeader.TransmitGlobalTime = DISABLE;
+	txHeader.DLC = 8; // Number of bites to be transmitted max- 8
+	txHeader.IDE = CAN_ID_STD;
+	txHeader.RTR = CAN_RTR_DATA;
+	txHeader.StdId = 0x030;
+	txHeader.ExtId = 0x02;
+	txHeader.TransmitGlobalTime = DISABLE;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -181,28 +232,28 @@ uint32_t canMailbox; //CAN Bus Mail box variable
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_CAN_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   
 //     HAL_UART_Transmit_IT(&huart1, (uint8_t *)aTxStartMessage, sizeof(aTxStartMessage));
-    HAL_UART_Receive_IT(&huart1, (uint8_t *)aRxBuffer, 10);
+//     HAL_UART_Receive_IT(&huart1, (uint8_t *)aRxBuffer, 10);
+//     HAL_UART_Receive_IT(&huart1, (uint8_t *)receive_buff, 255);
   HAL_CAN_ConfigFilter(&hcan,&canfil); //Initialize CAN Filter
   HAL_CAN_Start(&hcan); //Initialize CAN Bus
   HAL_CAN_ActivateNotification(&hcan,CAN_IT_RX_FIFO0_MSG_PENDING);// Initialize CAN Bus Rx Interrupt
+	__HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
+	HAL_UART_Receive_DMA(&huart1, (uint8_t*)receive_buff, 255);     //Set up the DMA
   /* USER CODE END 2 */
-uint8_t transmitBuffer[] = "welcome to www.waveshere.com !!!\n";
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
     /* USER CODE END WHILE */
-//     HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
-	uint8_t csend[] = {0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x08}; // Tx Buffer
-// HAL_CAN_AddTxMessage(&hcan,&txHeader,csend,&canMailbox); // Send Message
-    HAL_Delay(1000);	
-// 	    HAL_UART_Receive_IT(&huart1, transmitBuffer, 32);
-// HAL_UART_Transmit_IT(&huart1, transmitBuffer, strlen(transmitBuffer));
+    HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
+	HAL_Delay(1000); 
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
@@ -314,6 +365,22 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
 
 }
 
