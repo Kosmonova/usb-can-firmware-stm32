@@ -103,6 +103,7 @@ void USAR_UART_IDLECallback(UART_HandleTypeDef *huart)
 	uint8_t data_length  = BUFFER_SIZE - __HAL_DMA_GET_COUNTER(huart->hdmarx);   
 
 	uartToCanDataProcess(data_length);
+	uartToCanDataFormatFix20B(data_length);
 	configureCanBus(data_length);
 
 	//Zero Receiving Buffer
@@ -111,6 +112,17 @@ void USAR_UART_IDLECallback(UART_HandleTypeDef *huart)
 
 	//Restart to start DMA transmission of 255 bytes of data at a time
 	HAL_UART_Receive_DMA(&huart1, (uint8_t*)receive_buff, 255);                  
+}
+static int generate_checksum(const unsigned char *data, int data_len)
+{
+  int i, checksum;
+
+  checksum = 0;
+  for (i = 0; i < data_len; i++) {
+    checksum += data[i];
+  }
+
+  return checksum & 0xff;
 }
 
 void configureCanBus(uint8_t dataLen)
@@ -127,15 +139,8 @@ void configureCanBus(uint8_t dataLen)
 		return;
 
 	canTypeFrame = receive_buff[4];
-	int i, checksum;
 
-	checksum = 0;
-	for (i = 2; i < 19; i++)
-		checksum += receive_buff[i];
-
-	checksum &= 0xff;
-
-	if(receive_buff[19] != checksum)
+	if(receive_buff[19] != generate_checksum(receive_buff + 2, 17))
 		return;
 
 	switch(receive_buff[3])
@@ -206,6 +211,52 @@ void configureCanBus(uint8_t dataLen)
 		Error_Handler();
 
 	HAL_CAN_Start(&hcan);
+}
+
+void uartToCanDataFormatFix20B(uint8_t dataLen)
+{
+	uint8_t csend[8]; // Tx Buffer
+	uint32_t canMailbox; //CAN Bus Mail box variable
+	CAN_TxHeaderTypeDef txHeader; //CAN Bus Receive Header
+
+	if(dataLen < 20)
+		return;
+
+	if(receive_buff[0] != 0xAA || receive_buff[1] != 0x55 ||
+		receive_buff[2] != 0x01)
+		return;
+
+	if(receive_buff[3] != 0x01 && receive_buff[3] != 0x02)
+		return;
+
+	if(receive_buff[4] != 0x01 && receive_buff[4] != 0x02)
+		return;
+
+	uint8_t canDataLen = receive_buff[9];
+
+	if(canDataLen > 8)
+		return;
+
+	if(receive_buff[19] != generate_checksum(receive_buff + 2, 17))
+		return;
+
+	txHeader.DLC = canDataLen;
+	txHeader.RTR = CAN_RTR_DATA;
+	txHeader.TransmitGlobalTime = DISABLE;
+
+	if(receive_buff[3] == CANUSB_FRAME_EXTENDED)
+	{
+		txHeader.IDE = CAN_ID_EXT;
+		txHeader.ExtId = *((uint32_t*)(receive_buff + 5));
+	}
+	else
+	{
+		txHeader.IDE = CAN_ID_STD;
+		txHeader.StdId = *((uint16_t*)(receive_buff + 5));
+	}
+
+	memcpy(csend, receive_buff + 10, canDataLen);
+	HAL_CAN_AddTxMessage(&hcan, &txHeader ,csend ,&canMailbox);
 }
 
 void uartToCanDataProcess(uint8_t dataLen)
