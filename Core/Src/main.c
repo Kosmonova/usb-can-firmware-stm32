@@ -48,6 +48,11 @@ typedef enum {
 } CANUSB_FRAME;
 
 typedef enum {
+	CANUSB_CONFIG_TYPE_NORMAL = 0x02,
+	CANUSB_CONFIG_TYPE_MANUAL = 0x03,
+} TYPE_SETTING_LOW_4b;
+
+typedef enum {
 	NONE_FORMAT = 0x00,
 	FIXED_FORMAT = 0x01,
 	NORMAL_FORMAT = 0x02,
@@ -134,18 +139,22 @@ static int generate_checksum(const unsigned char *data, int data_len)
 
 void configureCanBus(uint8_t dataLen)
 {
+	TYPE_SETTING_LOW_4b typeSetting;
+
 	if(dataLen < 19)
 		return;
 
 	if(receive_buff[0] != 0xAA || receive_buff[1] != 0x55)
 		return;
 
-	if(receive_buff[2] == 0x12)
+	if((receive_buff[2] & 0xF0) == 0x10)
 		canFrameFormat = NORMAL_FORMAT;
-	else if(receive_buff[2] == 0x02)
+	else if((receive_buff[2] & 0xF0) == 0x00)
 		canFrameFormat = FIXED_FORMAT;
 	else
 		return;
+
+	typeSetting = receive_buff[2] & 0x0F;
 
 	if(receive_buff[4] != CANUSB_FRAME_STANDARD && receive_buff[4] !=
 		CANUSB_FRAME_EXTENDED)
@@ -156,69 +165,104 @@ void configureCanBus(uint8_t dataLen)
 	if(receive_buff[19] != generate_checksum(receive_buff + 2, 17))
 		return;
 
-	switch(receive_buff[3])
+	if(typeSetting == CANUSB_CONFIG_TYPE_NORMAL)
 	{
-		case CANUSB_SPEED_1000000:
-			hcan.Init.Prescaler = 9;
-			hcan.Init.TimeSeg1 = CAN_BS1_2TQ;
-			hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
-			break;
-		case CANUSB_SPEED_800000:
-			hcan.Init.Prescaler = 9;
-			hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
-			hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
-			break;
-		case CANUSB_SPEED_500000:
-			hcan.Init.Prescaler = 9;
-			hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
-			hcan.Init.TimeSeg2 = CAN_BS2_4TQ;
-			break;
-		case CANUSB_SPEED_400000:
-			hcan.Init.Prescaler = 9;
-			hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
-			hcan.Init.TimeSeg2 = CAN_BS2_6TQ;
-			break;
-		case CANUSB_SPEED_250000:
-			hcan.Init.Prescaler = 9;
-			hcan.Init.TimeSeg1 = CAN_BS1_11TQ;
-			hcan.Init.TimeSeg2 = CAN_BS2_4TQ;
-			break;
-		case CANUSB_SPEED_200000:
-			hcan.Init.Prescaler = 9;
-			hcan.Init.TimeSeg1 = CAN_BS1_15TQ;
-			hcan.Init.TimeSeg2 = CAN_BS2_4TQ;
-			break;
-		case CANUSB_SPEED_125000:
-			hcan.Init.Prescaler = 16;
-			hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
-			hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
-			break;
-		case CANUSB_SPEED_100000:
-			hcan.Init.Prescaler = 15;
-			hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
-			hcan.Init.TimeSeg2 = CAN_BS2_7TQ;
-			break;
-		case CANUSB_SPEED_50000:
-			hcan.Init.Prescaler = 30;
-			hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
-			hcan.Init.TimeSeg2 = CAN_BS2_7TQ;
-			break;
-		case CANUSB_SPEED_20000:
-			hcan.Init.Prescaler = 72;
-			hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
-			hcan.Init.TimeSeg2 = CAN_BS2_8TQ;
-			break;
-		case CANUSB_SPEED_10000:
-			hcan.Init.Prescaler = 144;
-			hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
-			hcan.Init.TimeSeg2 = CAN_BS2_8TQ;
-			break;
-		case CANUSB_SPEED_5000:
-			hcan.Init.Prescaler = 288;
-			hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
-			hcan.Init.TimeSeg2 = CAN_BS2_8TQ;
-			break;
+		switch(receive_buff[3])
+		{
+			case CANUSB_SPEED_1000000:
+				hcan.Init.Prescaler = 9;
+				hcan.Init.TimeSeg1 = CAN_BS1_2TQ;
+				hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
+				break;
+			case CANUSB_SPEED_800000:
+				hcan.Init.Prescaler = 9;
+				hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
+				hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
+				break;
+			case CANUSB_SPEED_500000:
+				hcan.Init.Prescaler = 9;
+				hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
+				hcan.Init.TimeSeg2 = CAN_BS2_4TQ;
+				break;
+			case CANUSB_SPEED_400000:
+				hcan.Init.Prescaler = 9;
+				hcan.Init.TimeSeg1 = CAN_BS1_3TQ;
+				hcan.Init.TimeSeg2 = CAN_BS2_6TQ;
+				break;
+			case CANUSB_SPEED_250000:
+				hcan.Init.Prescaler = 9;
+				hcan.Init.TimeSeg1 = CAN_BS1_11TQ;
+				hcan.Init.TimeSeg2 = CAN_BS2_4TQ;
+				break;
+			case CANUSB_SPEED_200000:
+				hcan.Init.Prescaler = 9;
+				hcan.Init.TimeSeg1 = CAN_BS1_15TQ;
+				hcan.Init.TimeSeg2 = CAN_BS2_4TQ;
+				break;
+			case CANUSB_SPEED_125000:
+				hcan.Init.Prescaler = 16;
+				hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
+				hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
+				break;
+			case CANUSB_SPEED_100000:
+				hcan.Init.Prescaler = 15;
+				hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
+				hcan.Init.TimeSeg2 = CAN_BS2_7TQ;
+				break;
+			case CANUSB_SPEED_50000:
+				hcan.Init.Prescaler = 30;
+				hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
+				hcan.Init.TimeSeg2 = CAN_BS2_7TQ;
+				break;
+			case CANUSB_SPEED_20000:
+				hcan.Init.Prescaler = 72;
+				hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
+				hcan.Init.TimeSeg2 = CAN_BS2_8TQ;
+				break;
+			case CANUSB_SPEED_10000:
+				hcan.Init.Prescaler = 144;
+				hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
+				hcan.Init.TimeSeg2 = CAN_BS2_8TQ;
+				break;
+			case CANUSB_SPEED_5000:
+				hcan.Init.Prescaler = 288;
+				hcan.Init.TimeSeg1 = CAN_BS1_16TQ;
+				hcan.Init.TimeSeg2 = CAN_BS2_8TQ;
+				break;
+		}
 	}
+	else if(typeSetting == CANUSB_CONFIG_TYPE_MANUAL)
+	{
+		uint8_t seg1 = receive_buff[14];
+		uint8_t seg2 = receive_buff[15];
+		hcan.Init.TimeSeg1 = CAN_BS1_1TQ;
+		hcan.Init.TimeSeg2 = CAN_BS2_1TQ;
+
+		if(seg1 & 0x01)
+			hcan.Init.TimeSeg1 |= CAN_BTR_TS1_0;
+
+		if(seg1 & 0x02)
+			hcan.Init.TimeSeg1 |= CAN_BTR_TS1_1;
+
+		if(seg1 & 0x04)
+			hcan.Init.TimeSeg1 |= CAN_BTR_TS1_2;
+
+		if(seg1 & 0x08)
+			hcan.Init.TimeSeg1 |= CAN_BTR_TS1_3;
+
+		if(seg2 & 0x01)
+			hcan.Init.TimeSeg2 |= CAN_BTR_TS2_0;
+
+		if(seg2 & 0x02)
+			hcan.Init.TimeSeg2 |= CAN_BTR_TS2_1;
+
+		if(seg2 & 0x04)
+			hcan.Init.TimeSeg2 |= CAN_BTR_TS2_2;
+
+		hcan.Init.Prescaler = *((uint16_t*)(receive_buff + 16));
+	}
+	else
+		return;
 
 	if (HAL_CAN_Init(&hcan) != HAL_OK)
 		Error_Handler();
