@@ -48,6 +48,12 @@ typedef enum {
 } CANUSB_FRAME;
 
 typedef enum {
+	NONE_FORMAT = 0x00,
+	FIXED_FORMAT = 0x01,
+	NORMAL_FORMAT = 0x02,
+} FRAME_FORMAT;
+
+typedef enum {
   CANUSB_SPEED_1000000 = 0x01,
   CANUSB_SPEED_800000  = 0x02,
   CANUSB_SPEED_500000  = 0x03,
@@ -63,6 +69,7 @@ typedef enum {
 } CANUSB_SPEED;
 
 CANUSB_FRAME canTypeFrame = CAN_BUS_FRAME_NONE;
+FRAME_FORMAT canFrameFormat = NONE_FORMAT;
 CAN_HandleTypeDef hcan;
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
@@ -130,8 +137,14 @@ void configureCanBus(uint8_t dataLen)
 	if(dataLen < 19)
 		return;
 
-	if(receive_buff[0] != 0xAA || receive_buff[1] != 0x55 ||
-		receive_buff[2] != 0x12)
+	if(receive_buff[0] != 0xAA || receive_buff[1] != 0x55)
+		return;
+
+	if(receive_buff[2] == 0x12)
+		canFrameFormat = NORMAL_FORMAT;
+	else if(receive_buff[2] == 0x02)
+		canFrameFormat = FIXED_FORMAT;
+	else
 		return;
 
 	if(receive_buff[4] != CANUSB_FRAME_STANDARD && receive_buff[4] !=
@@ -308,20 +321,13 @@ void uartToCanDataProcess(uint8_t dataLen)
 	HAL_CAN_AddTxMessage(&hcan, &txHeader ,csend ,&canMailbox);
 }
 
-__weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+void canToUartNormalFormat(CAN_HandleTypeDef *hcan)
 {
-  /* Prevent unused argument(s) compilation warning */
-  UNUSED(hcan);
-
-  /* NOTE : This function Should not be modified, when the callback is needed,
-            the HAL_CAN_RxFifo0MsgPendingCallback could be implemented in the
-            user file
-   */
 	CAN_RxHeaderTypeDef rxHeader; //CAN Bus Transmit Header
 	uint8_t canRX[8];  //CAN Bus Receive Buffer
 	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, canRX); //Receive CAN bus message to canRX buffer
 	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
-	uint8_t transmitBuffer[15];
+	uint8_t transmitBuffer[20];
 	int posBuffer = 0;
 	transmitBuffer[posBuffer++] = 0xAA;
 	transmitBuffer[posBuffer++] = 0xC0 + rxHeader.DLC +
@@ -343,6 +349,56 @@ __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 	transmitBuffer[posBuffer++] = 0x55;
 
 	HAL_UART_Transmit_IT(&huart1, transmitBuffer, posBuffer);
+}
+
+void canToUartFixed20Format(CAN_HandleTypeDef *hcan)
+{
+	CAN_RxHeaderTypeDef rxHeader; //CAN Bus Transmit Header
+	uint8_t canRX[8];  //CAN Bus Receive Buffer
+	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, canRX); //Receive CAN bus message to canRX buffer
+
+	uint8_t transmitBuffer[20];
+	int posBuffer = 0;
+
+	transmitBuffer[posBuffer++] = 0xAA;
+	transmitBuffer[posBuffer++] = 0x55;
+	transmitBuffer[posBuffer++] = 0x01;
+	transmitBuffer[posBuffer++] = CAN_ID_EXT == rxHeader.IDE ? 0x02 : 0x01;
+	transmitBuffer[posBuffer++] = 0x01;
+
+	memset(transmitBuffer+ posBuffer, 0 , 4);
+
+	if(rxHeader.IDE == CAN_ID_STD)
+		*((uint16_t*)(transmitBuffer + posBuffer)) = rxHeader.StdId;
+	else
+		*((uint32_t*)(transmitBuffer + posBuffer)) = rxHeader.ExtId;
+
+	posBuffer += 4;
+	transmitBuffer[posBuffer++] = rxHeader.DLC;
+
+
+	memset(transmitBuffer+ posBuffer, 0 , 8);
+	memcpy(transmitBuffer + posBuffer, canRX, rxHeader.DLC);
+	posBuffer +=8;
+	transmitBuffer[posBuffer++] = 0;
+	transmitBuffer[posBuffer++] = generate_checksum(transmitBuffer + 2, 17);
+
+	HAL_UART_Transmit_IT(&huart1, transmitBuffer, posBuffer);
+}
+
+__weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+{
+  /* Prevent unused argument(s) compilation warning */
+  UNUSED(hcan);
+
+  /* NOTE : This function Should not be modified, when the callback is needed,
+            the HAL_CAN_RxFifo0MsgPendingCallback could be implemented in the
+            user file
+   */
+	if(canFrameFormat == NORMAL_FORMAT)
+		canToUartNormalFormat(hcan);
+	else if(canFrameFormat == FIXED_FORMAT)
+		canToUartFixed20Format(hcan);
 }
 
 /* USER CODE END 0 */
