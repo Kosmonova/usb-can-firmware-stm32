@@ -26,21 +26,12 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 #define BUFFER_SIZE 255
-UART_HandleTypeDef huart1;
+
 uint8_t receive_buff[255];                //Define the receive array
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
-/* USER CODE END PM */
-
-/* Private variables ---------------------------------------------------------*/
-
 typedef enum {
 	CAN_BUS_FRAME_NONE = 0x00,
 	CANUSB_FRAME_STANDARD = 0x01,
@@ -76,7 +67,20 @@ typedef enum {
 CANUSB_FRAME canTypeFrame = CAN_BUS_FRAME_NONE;
 FRAME_FORMAT canFrameFormat = NONE_FORMAT;
 CAN_HandleTypeDef hcan;
+
+DMA_HandleTypeDef hdma_usart1_rx;
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
+
+/* USER CODE END PM */
+
+/* Private variables ---------------------------------------------------------*/
+CAN_HandleTypeDef hcan;
+
 UART_HandleTypeDef huart1;
+UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart1_rx;
 
 /* USER CODE BEGIN PV */
@@ -88,7 +92,156 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_CAN_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
+
+struct ToleranceBaudRate
+{
+	int min; int max; int nominal;
+}
+toleranceBaudRates[] =
+{
+	{1195, 1205, 1200},
+	{4790, 4810, 4800},
+	{9880, 9620, 9600},
+	{19180, 19220, 19200},
+	{38380, 38420, 38400},
+	{57400, 57800, 57600},
+	{114700, 115700, 115200},
+	{1128800, 1328800, 1228800},
+	{1998000, 2002000, 2000000},
+};
+
+// HAL_Init();
+// HAL_SuspendTick();
+//
+// System Clock source = PLL (HSE)
+// PLLMUL              = RCC_PLL_MUL9 (9)
+// Flash Latency(WS)   = 2
+//
+//
+//
+//
+volatile int end_interrupt_flag = 0;
+
+static void EXTILine1_Config(void)
+{
+	GPIO_InitTypeDef GPIO_InitStructure;
+
+	/* Enable GPIOE clock */
+	__GPIOA_CLK_ENABLE();
+	/* Configure PE1 pin as input floating */
+	GPIO_InitStructure.Mode = GPIO_MODE_IT_RISING;
+	GPIO_InitStructure.Pull = GPIO_NOPULL;
+	GPIO_InitStructure.Pin = GPIO_PIN_10;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStructure);
+	/* Enable and set EXTI Line0 Interrupt to the lowest
+	priority */
+	HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+}
+//
+// /* Autobaudrate sequence : Update BRR register*/
+// Autobaudrate();
+// /* Send acknowledgement */
+// if (HAL_UART_Transmit_DMA(&UartHandle, (uint8_t*)aTxBuffer, TXBUFFERSIZE) != HAL_OK)
+// {
+//  /* Transfer error in transmission process */
+//  Error_Handler();
+// }
+// while (HAL_UART_GetState(&UartHandle) !=
+// HAL_UART_STATE_READY)
+// {}
+// /* Infinite loop */
+// while (1)
+// {}
+//
+// static void Autobaudrate(void)
+// {
+// 	float tmp=0, elapsed;
+// 	uint32_t USART1_clk=0;
+// 	uint32_t start_time_val=0;
+// 	uint32_t BRR=0;
+// 	tmp += 0xFFFFFF - stop_time_val;
+// 	tmp -= start_time_val;
+// 	elapsed =(tmp/(SystemCoreClock/1000000))/8;
+// 	USART1_clk=SystemCoreClock;
+// 	if( (USART1->CR1 & 0x8000)== 0x8000)
+// 	{
+// 		/*In case of oversampling by 8*/
+// 		BRR =(elapsed*((2*USART1_clk)/1000000))+1;
+// 		USART1->BRR= BRR;
+// 	}
+// 	else
+// 	{
+// 		/*In case of oversampling by 16*/
+// 		BRR =(elapsed* ((USART1_clk)/1000000))+1;
+// 		USART1->BRR=BRR;
+// 	}
+// }
+// #define END_ON_BITS 14
+// #define END_ON_BITS 8
+// #define END_ON_BITS 14
+// #define END_ON_BITS 16
+
+#define SysTick_Counter_Disable ((uint32_t)0xFFFFFFFE)
+#define SysTick_Counter_Enable ((uint32_t)0x00000001)
+#define SysTick_Counter_Clear ((uint32_t)0x00000000)
+#define GETMYTIME(_t) (_t = HAL_GetTick() * (SysTick->LOAD + 1) + SysTick->LOAD - SysTick->VAL)
+
+#define END_ON_BITS 2
+
+uint32_t stop_time_val = 0;
+uint32_t start_time_val = 0;
+void EXTI15_10_IRQHandler()
+{
+	static int nbits = 0;
+	HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_10);
+	nbits++;
+	if(nbits == 1)
+	{
+		/* Clear the SysTick Counter */
+		GETMYTIME(start_time_val);
+	}
+	if(nbits <= END_ON_BITS)
+		return;
+
+	GETMYTIME(stop_time_val);
+	HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+	end_interrupt_flag=1;
+}
+
+// void EXTI15_10_IRQHandler()
+// {
+// 	static int temp = 0;
+// 	HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_10);
+// HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+//
+// 	if(temp==0)
+// 	{
+// 		HAL_SYSTICK_Config(0xFFFFFF);
+// 		temp++;
+// 	}
+// 	else
+// 	{
+// 		SysTick->CTRL &= SysTick_Counter_Disable;
+// 		/* Stop the Timer and get the encoding time
+// 		*/
+// 		GETMYTIME(&stop_time_val);
+// 		/* Clear the SysTick Counter */
+// 		SysTick->VAL = SysTick_Counter_Clear;
+// 		/* Clear the temp flag*/
+// 		temp=0;
+// 		/*end of interrupt*/
+// 		end_interrupt_flag=1;
+// 	}
+// }
+
+
+
+
+
+
 
 /* USER CODE END PFP */
 
@@ -96,7 +249,7 @@ static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN 0 */
 void USER_UART_IRQHandler(UART_HandleTypeDef *huart)
 {
-    if(USART1 == huart1.Instance)                                   //Determine whether it is serial port 1
+    if(USART1 == huart->Instance)                                   //Determine whether it is serial port 1
     {
         if(RESET != __HAL_UART_GET_FLAG(&huart1, UART_FLAG_IDLE))   //Judging whether it is idle interruption
         {
@@ -104,6 +257,14 @@ void USER_UART_IRQHandler(UART_HandleTypeDef *huart)
             USAR_UART_IDLECallback(huart);                          //Call interrupt handler
         }
     }
+//     if(USART2 == huart->Instance)                                   //Determine whether it is serial port 1
+//     {
+//         if(RESET != __HAL_UART_GET_FLAG(&huart2, UART_FLAG_IDLE))   //Judging whether it is idle interruption
+//         {
+//             __HAL_UART_CLEAR_IDLEFLAG(&huart2);                     //Clear idle interrupt sign (otherwise it will continue to enter interrupt)
+// //             USAR_UART_IDLECallback(huart);                          //Call interrupt handler
+//         }
+//     }
 }
 
 void USAR_UART_IDLECallback(UART_HandleTypeDef *huart)
@@ -112,14 +273,17 @@ void USAR_UART_IDLECallback(UART_HandleTypeDef *huart)
 	HAL_UART_DMAStop(&huart1);  
 
 	//Calculate the length of the received data
-	uint8_t data_length  = BUFFER_SIZE - __HAL_DMA_GET_COUNTER(huart->hdmarx);   
+	uint8_t data_length  = BUFFER_SIZE - __HAL_DMA_GET_COUNTER(huart->hdmarx);
+// 	HAL_UART_Transmit_IT(&huart1, receive_buff, data_length);
+	HAL_UART_Transmit(&huart2, receive_buff, data_length, 0x200);
 
-	uartToCanDataProcess(data_length);
-	uartToCanDataFormatFix20B(data_length);
-	configureCanBus(data_length);
+// 			HAL_UART_Transmit_IT(&huart2, buff, sizeof(buff));
+// 	uartToCanDataProcess(data_length);
+// 	uartToCanDataFormatFix20B(data_length);
+// 	configureCanBus(data_length);
 
 	//Zero Receiving Buffer
-	memset(receive_buff,0,data_length);                                            
+	memset(receive_buff,0,data_length);
 	data_length = 0;
 
 	//Restart to start DMA transmission of 255 bytes of data at a time
@@ -445,6 +609,17 @@ __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		canToUartFixed20Format(hcan);
 }
 
+// 1200	48276
+// 4800	11979
+// 9600	41934
+// 115200	69388
+
+// 1200	529
+// 4800	54081
+// 9600	27002
+// 115200
+
+
 /* USER CODE END 0 */
 
 /**
@@ -473,6 +648,7 @@ int main(void)
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+  HAL_SuspendTick();
 
   /* USER CODE BEGIN Init */
 
@@ -485,13 +661,73 @@ int main(void)
 
   /* USER CODE END SysInit */
 
+  EXTILine1_Config();
+/*Wait until the end of interrupt */
+		SysTick->VAL = SysTick_Counter_Clear;
+while (end_interrupt_flag != 1);
+
+// HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+// 	HAL_Delay(1);
+//
+// 	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+// HAL_NVIC_DisableIRQ(EXTI15_10_IRQn);
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+//   HAL_Init();
+//
+//
+//
+//
+//   HAL_SuspendTick();
+//
+//   /* USER CODE BEGIN Init */
+//
+//   /* USER CODE END Init */
+//
+//   /* Configure the system clock */
+//   SystemClock_Config();
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+
+// while(1)
+// {
+// 	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
+// 	HAL_Delay(1000);
+// }
+
   MX_DMA_Init();
   MX_CAN_Init();
   MX_USART1_UART_Init();
+  MX_USART2_UART_Init();
+while (HAL_UART_GetState(&huart1) !=
+HAL_UART_STATE_READY);
+
+int x = 50;
+int baudRate;
+if(toleranceBaudRates[0].max < x)
+	baudRate = toleranceBaudRates[0].nominal;
+char buff[100];
+// sprintf(buff, "dt time_val: %lu\n", stop_time_val - start_time_val);
+
+
+sprintf(buff, "uart Baudrate : %lu bps\n", (int)72e6 * END_ON_BITS * 2 / (stop_time_val - start_time_val));
+// sprintf(buff, "uart Baudrate : %lu bps\n", toleranceBaudRates[1].nominal);
+
+// while(1)
+// {
+// if((SysTick->VAL % 1000) > 10)
+// 	continue;
+// sprintf(buff, "SysTick->VAL: %lu\n", SysTick->VAL);
+HAL_UART_Transmit_IT(&huart2, buff, strlen(buff));
+// // HAL_Delay(10);
+// // sprintf(buff, "SysTick->LOAD: %lu\n", SysTick->LOAD);
+// // HAL_UART_Transmit_IT(&huart2, buff, strlen(buff));
+// // // HAL_Delay(10);
+// // sprintf(buff, "SysTick->CTRL: %x\n", SysTick->CTRL);
+// // HAL_UART_Transmit_IT(&huart2, buff, strlen(buff));
+// // HAL_Delay(10);
+// }
   /* USER CODE BEGIN 2 */
-  
+
 //     HAL_UART_Transmit_IT(&huart1, (uint8_t *)aTxStartMessage, sizeof(aTxStartMessage));
 //     HAL_UART_Receive_IT(&huart1, (uint8_t *)aRxBuffer, 10);
 //     HAL_UART_Receive_IT(&huart1, (uint8_t *)receive_buff, 255);
@@ -506,11 +742,14 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
+// 	  char buff[] = "hello world!\n";
+// 	  HAL_UART_Transmit_IT(&huart1, buff, sizeof(buff));
+// 	  HAL_UART_Transmit_IT(&huart2, buff, sizeof(buff));
 	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
 	HAL_Delay(1000);
+    /* USER CODE END WHILE */
     /* USER CODE BEGIN 3 */
-	
+
   }
   /* USER CODE END 3 */
 }
@@ -625,6 +864,39 @@ static void MX_USART1_UART_Init(void)
 }
 
 /**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 19200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -635,7 +907,7 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel5_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 2, 2);
   HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
 
 }
@@ -657,22 +929,12 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(BLUELED_GPIO_Port, BLUELED_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
-
   /*Configure GPIO pin : BLUELED_Pin */
   GPIO_InitStruct.Pin = BLUELED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(BLUELED_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PA3 */
-  GPIO_InitStruct.Pin = GPIO_PIN_3;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
