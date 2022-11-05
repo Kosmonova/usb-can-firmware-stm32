@@ -95,21 +95,17 @@ static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
-struct ToleranceBaudRate
+int toleranceBaudRates[] =
 {
-	int min; int max; int nominal;
-}
-toleranceBaudRates[] =
-{
-	{1195, 1205, 1200},
-	{4790, 4810, 4800},
-	{9560, 9640, 9600},
-	{18700, 19500, 19200},
-	{38000, 38500, 38400},
-	{57400, 57800, 57600},
-	{114700, 115700, 115200},
-	{1128800, 1328800, 1228800},
-	{1800000, 2200000, 2000000}
+	1200,
+	4800,
+	9600,
+	19200,
+	38400,
+	57600,
+	115200,
+	1228800,
+	2000000
 };
 
 // HAL_Init();
@@ -609,16 +605,6 @@ __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		canToUartFixed20Format(hcan);
 }
 
-// 1200	48276
-// 4800	11979
-// 9600	41934
-// 115200	69388
-
-// 1200	529
-// 4800	54081
-// 9600	27002
-// 115200
-
 int main(void)
 {
 		  /* USER CODE BEGIN 1 */
@@ -662,6 +648,7 @@ int main(void)
 	GPIO_InitStructure.Mode = GPIO_MODE_IT_RISING;
 	GPIO_InitStructure.Pull = GPIO_NOPULL;
 	GPIO_InitStructure.Pin = GPIO_PIN_10;
+	GPIO_InitStructure.Speed = GPIO_SPEED_FREQ_HIGH;
 	HAL_GPIO_Init(GPIOA, &GPIO_InitStructure);
 	/* Enable and set EXTI Line0 Interrupt to the lowest
 	priority */
@@ -712,13 +699,13 @@ HAL_UART_STATE_READY);
 
 	while(1)
 	{
-  while(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_10));
-  while(!HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_10));
-  GETMYTIME(start_time_val);
-  while(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_10));
-  while(!HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_10));
-  while(HAL_GPIO_ReadPin (GPIOA, GPIO_PIN_10));
-  GETMYTIME(stop_time_val);
+		while((GPIOA->IDR & GPIO_PIN_10) != (uint32_t)GPIO_PIN_RESET);
+		while((GPIOA->IDR & GPIO_PIN_10) == (uint32_t)GPIO_PIN_RESET);
+		GETMYTIME(start_time_val);
+		while((GPIOA->IDR & GPIO_PIN_10) != (uint32_t)GPIO_PIN_RESET);
+		while((GPIOA->IDR & GPIO_PIN_10) == (uint32_t)GPIO_PIN_RESET);
+		while((GPIOA->IDR & GPIO_PIN_10) != (uint32_t)GPIO_PIN_RESET);
+		GETMYTIME(stop_time_val);
 
 
 char buff[100];
@@ -728,16 +715,14 @@ char buff[100];
 
 	uint32_t bitRateUart = (int)72e6 * 3 / (stop_time_val - start_time_val);
 	int idxBitRate = 0;
-	uint32_t nominalBitRateUart = 2000000;
+	uint32_t nominalBitRateUart = 0;
 
-	for(idxBitRate = 0; idxBitRate < sizeof(toleranceBaudRates) / sizeof(struct ToleranceBaudRate); idxBitRate++)
+	for(idxBitRate = 0; idxBitRate < sizeof(toleranceBaudRates); idxBitRate++)
 	{
-// 		if(toleranceBaudRates[idxBitRate].max > bitRateUart &&
-// 			toleranceBaudRates[idxBitRate].min < bitRateUart)
-		if(toleranceBaudRates[idxBitRate].nominal * 1.15 > bitRateUart &&
-			toleranceBaudRates[idxBitRate].nominal * 0.85 < bitRateUart)
+		if(toleranceBaudRates[idxBitRate] * 1.15 > bitRateUart &&
+			toleranceBaudRates[idxBitRate] * 0.85 < bitRateUart)
 		{
-			nominalBitRateUart = toleranceBaudRates[idxBitRate].nominal;
+			nominalBitRateUart = toleranceBaudRates[idxBitRate];
 			break;
 		}
 	}
@@ -747,13 +732,7 @@ memset(buff, 0, 100);
 		sprintf(buff, "undefined Baudrate %lu bps\n", bitRateUart);
 	else
 		sprintf(buff, "uart Baudrate : %lu bps, : %lu bps\n", nominalBitRateUart, bitRateUart);
-// sprintf(buff, "uart Baudrate : %lu bps\n", toleranceBaudRates[1].nominal);
 
-// while(1)
-// {
-// if((SysTick->VAL % 1000) > 10)
-// 	continue;
-// sprintf(buff, "SysTick->VAL: %lu\n", SysTick->VAL);
 HAL_UART_Transmit_IT(&huart2, buff, strlen(buff));
 HAL_Delay(100);
 	}
@@ -848,10 +827,6 @@ int main1(void)
 while (HAL_UART_GetState(&huart1) !=
 HAL_UART_STATE_READY);
 
-int x = 50;
-int baudRate;
-if(toleranceBaudRates[0].max < x)
-	baudRate = toleranceBaudRates[0].nominal;
 char buff[100];
 // sprintf(buff, "dt time_val: %lu\n", stop_time_val - start_time_val);
 
