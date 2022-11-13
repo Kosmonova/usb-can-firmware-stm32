@@ -562,32 +562,44 @@ HAL_UART_STATE_READY);
 int previousNominalBitRateUart = 0;
 	while(1)
 	{
-// HAL_Init();
-//   HAL_SuspendTick();
-//
-//   /* USER CODE BEGIN Init */
-//
-//   /* USER CODE END Init */
-//
-//   /* Configure the system clock */
-//   SystemClock_Config();
-// 	SysTick->VAL = SysTick_Counter_Clear;
-//   MX_DMA_Init();
-//   MX_USART1_UART_Init();
-// 		if(blockReadBitRate)
-// 			continue;
-
-
 		__HAL_UART_DISABLE_IT(&huart1, UART_IT_IDLE);
+
+		int txPrev, txCurrent;
 		while((GPIOA->IDR & GPIO_PIN_10) != (uint32_t)GPIO_PIN_RESET);
 		while((GPIOA->IDR & GPIO_PIN_10) == (uint32_t)GPIO_PIN_RESET);
+		int signature0xAA55 = 1;
 		GETMYTIME(start_time_val);
 		while((GPIOA->IDR & GPIO_PIN_10) != (uint32_t)GPIO_PIN_RESET);
 		while((GPIOA->IDR & GPIO_PIN_10) == (uint32_t)GPIO_PIN_RESET);
-		while((GPIOA->IDR & GPIO_PIN_10) != (uint32_t)GPIO_PIN_RESET);
+		GETMYTIME(txCurrent);
+		const int dt = txCurrent - start_time_val;
+// 		const int dtMax = dt + dt >> 1;
+// 		const int dtMin = dt - dt >> 1;
+		const int dtMax = (dt << 2) + dt;
+		const int dtMin = (dt << 2) - dt;
+		txPrev = txCurrent;
+
+		int count = 2;
+		while(signature0xAA55 && count--)
+		{
+			while((GPIOA->IDR & GPIO_PIN_10) != (uint32_t)GPIO_PIN_RESET);
+			while((GPIOA->IDR & GPIO_PIN_10) == (uint32_t)GPIO_PIN_RESET);
+			GETMYTIME(txCurrent);
+
+// 			if((dt > 0.6 * (txCurrent - txPrev)) && (dt < 1.4 * (txCurrent - txPrev)))
+			if(dtMax > ((txCurrent - txPrev) << 2) && (dtMin < ((txCurrent - txPrev) << 2)))
+// 			if(dtMax > (txCurrent - txPrev) && dtMin < (txCurrent - txPrev))
+			{
+				txPrev = txCurrent;
+				continue;
+			}
+
+			signature0xAA55 = 0;
+		}
+
 		GETMYTIME(stop_time_val);
 
-	uint32_t bitRateUart = (int)72e6 * 3 / (stop_time_val - start_time_val);
+	uint32_t bitRateUart = (int)72e6 * 6 / (stop_time_val - start_time_val);
 	int idxBitRate = 0;
 	uint32_t nominalBitRateUart = 0;
 
@@ -601,7 +613,8 @@ int previousNominalBitRateUart = 0;
 		}
 	}
 
-	if(nominalBitRateUart != 0 && previousNominalBitRateUart != nominalBitRateUart)
+// 	if(nominalBitRateUart != 0 && previousNominalBitRateUart != nominalBitRateUart)
+if(signature0xAA55 && nominalBitRateUart != 0)
 	{
 		previousNominalBitRateUart = nominalBitRateUart;
 		huart1.Init.BaudRate = nominalBitRateUart;
@@ -614,19 +627,6 @@ data_length = 0;
 	}
 	__HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
 
-// 	HAL_Delay(1000);
-// 	HAL_UART_Transmit(&huart2, receive_buff, data_length, 0x200);
-// 	if(data_length > 0)
-// 	{
-// 	HAL_UART_Transmit_IT(&huart2, receive_buff, data_length);
-// 	data_length = 0;
-// 	}
-
-
-//
-//
-// 	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
-// HAL_Delay(500);
 HAL_Delay(1.1 * 8000 * 20 / huart1.Init.BaudRate);
 	}
 	return 0;
