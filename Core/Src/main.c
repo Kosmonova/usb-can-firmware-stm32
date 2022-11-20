@@ -490,6 +490,437 @@ __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		canToUartFixed20Format(hcan);
 }
 
+// // 15 + 7 * n  steps
+// #define waitCountMachineStep(n) \
+// {                               \
+// 	uint32_t nCp = n;           \
+// 	while(nCp --)               \
+// 	{                           \
+// 		__asm__("nop");         \
+// 	}                           \
+// }
+
+// 15 + 6 * n  steps
+// #define waitCountMachineStep(n) \
+// {                               \
+// 	uint32_t nCp = n;           \
+// 	while(nCp --);              \
+// }
+
+#define waitCountMachineStep1(n)      \
+		switch(n)                    \
+		{                            \
+			case 15:                 \
+				__asm__("nop");      \
+			case 14:                 \
+				__asm__("nop");      \
+			case 13:                 \
+				__asm__("nop");      \
+			case 12:                 \
+				__asm__("nop");      \
+			case 11:                 \
+				__asm__("nop");      \
+			case 10:                 \
+				__asm__("nop");      \
+			case 9:                  \
+				__asm__("nop");      \
+			case 8:                  \
+				__asm__("nop");      \
+			case 7:                  \
+				__asm__("nop");      \
+			case 6:                  \
+				__asm__("nop");      \
+			case 5:                  \
+				__asm__("nop");      \
+			case 4:                  \
+				__asm__("nop");      \
+			case 3:                  \
+				__asm__("nop");      \
+			case 2:                  \
+				__asm__("nop");      \
+			case 1:                  \
+				__asm__("nop");      \
+			break;                   \
+			default:                 \
+			{                        \
+				uint32_t nCp = n;    \
+				nCp -= 0;           \
+				nCp /= 12;            \
+				uint32_t nCp1 = n - nCp * 12;            \
+				while(nCp --)       \
+				__asm__("nop");      \
+				switch(nCp1)              \
+				{                            \
+					case 15:                 \
+						__asm__("nop");      \
+					case 14:                 \
+						__asm__("nop");      \
+					case 13:                 \
+						__asm__("nop");      \
+					case 12:                 \
+						__asm__("nop");      \
+					case 11:                 \
+						__asm__("nop");      \
+					case 10:                 \
+						__asm__("nop");      \
+					case 9:                  \
+						__asm__("nop");      \
+					case 8:                  \
+						__asm__("nop");      \
+					case 7:                  \
+						__asm__("nop");      \
+					case 6:                  \
+						__asm__("nop");      \
+					case 5:                  \
+						__asm__("nop");      \
+					case 4:                  \
+						__asm__("nop");      \
+					case 3:                  \
+						__asm__("nop");      \
+					case 2:                  \
+						__asm__("nop");      \
+					case 1:                  \
+						__asm__("nop");      \
+					break;                   \
+				}                        \
+			}                        \
+		}
+
+#define waitCountMachineStep(n)      \
+		switch(n)                    \
+		{                            \
+			case 81:                 \
+				__asm__("nop");      \
+			case 80:                 \
+				__asm__("nop");      \
+			case 79:                 \
+				__asm__("nop");      \
+			case 78:                 \
+				__asm__("nop");      \
+			case 77:                 \
+				__asm__("nop");      \
+			case 76:                 \
+				__asm__("nop");      \
+			case 75:                 \
+				__asm__("nop");      \
+			case 74:                 \
+				__asm__("nop");      \
+			case 73:                 \
+				__asm__("nop");      \
+			case 72:                 \
+				__asm__("nop");      \
+			case 71:                 \
+				__asm__("nop");      \
+			case 70:                 \
+				__asm__("nop");      \
+			case 69:                 \
+				__asm__("nop");      \
+			case 68:                 \
+				__asm__("nop");      \
+			case 67:                 \
+				__asm__("nop");      \
+			case 66:                 \
+				__asm__("nop");      \
+			case 65:                 \
+				__asm__("nop");      \
+			case 64:                 \
+				__asm__("nop");      \
+			case 63:                 \
+				__asm__("nop");      \
+			case 62:                 \
+				__asm__("nop");      \
+			case 61:                 \
+				__asm__("nop");      \
+			case 60:                 \
+				__asm__("nop");      \
+			case 59:                 \
+				__asm__("nop");      \
+			case 58:                 \
+				__asm__("nop");      \
+			case 57:                 \
+				__asm__("nop");      \
+			case 56:                 \
+				__asm__("nop");      \
+			case 55:                 \
+				__asm__("nop");      \
+			case 54:                 \
+				__asm__("nop");      \
+			case 53:                 \
+				__asm__("nop");      \
+			case 52:                 \
+				__asm__("nop");      \
+			case 51:                 \
+				__asm__("nop");      \
+			case 50:                 \
+				__asm__("nop");      \
+			case 49:                 \
+				__asm__("nop");      \
+			case 48:                 \
+				__asm__("nop");      \
+			case 47:                 \
+				__asm__("nop");      \
+			case 46:                 \
+				__asm__("nop");      \
+			case 45:                 \
+				__asm__("nop");      \
+			case 44:                 \
+				__asm__("nop");      \
+			case 43:                 \
+				__asm__("nop");      \
+			case 42:                 \
+				__asm__("nop");      \
+			case 41:                 \
+				__asm__("nop");      \
+			case 40:                 \
+				__asm__("nop");      \
+			case 39:                 \
+				__asm__("nop");      \
+			case 38:                 \
+				__asm__("nop");      \
+			case 37:                 \
+				__asm__("nop");      \
+			case 36:                 \
+				__asm__("nop");      \
+			case 35:                 \
+				__asm__("nop");      \
+			case 34:                 \
+				__asm__("nop");      \
+			case 33:                 \
+				__asm__("nop");      \
+			case 32:                 \
+				__asm__("nop");      \
+			case 31:                 \
+				__asm__("nop");      \
+			case 30:                 \
+				__asm__("nop");      \
+			case 29:                 \
+				__asm__("nop");      \
+			case 28:                 \
+				__asm__("nop");      \
+			case 27:                 \
+				__asm__("nop");      \
+			case 26:                 \
+				__asm__("nop");      \
+			case 25:                 \
+				__asm__("nop");      \
+			case 24:                 \
+				__asm__("nop");      \
+			case 23:                 \
+				__asm__("nop");      \
+			case 22:                 \
+				__asm__("nop");      \
+			case 21:                 \
+				__asm__("nop");      \
+			case 20:                 \
+				__asm__("nop");      \
+			case 19:                 \
+				__asm__("nop");      \
+			case 18:                 \
+				__asm__("nop");      \
+			case 17:                 \
+				__asm__("nop");      \
+			case 16:                 \
+				__asm__("nop");      \
+			case 15:                 \
+				__asm__("nop");      \
+			case 14:                 \
+				__asm__("nop");      \
+			case 13:                 \
+				__asm__("nop");      \
+			case 12:                 \
+				__asm__("nop");      \
+			case 11:                 \
+				__asm__("nop");      \
+			case 10:                 \
+				__asm__("nop");      \
+			case 9:                  \
+				__asm__("nop");      \
+			case 8:                  \
+				__asm__("nop");      \
+			case 7:                  \
+				__asm__("nop");      \
+			case 6:                  \
+				__asm__("nop");      \
+			case 5:                  \
+				__asm__("nop");      \
+			case 4:                  \
+				__asm__("nop");      \
+			case 3:                  \
+				__asm__("nop");      \
+			case 2:                  \
+				__asm__("nop");      \
+			case 1:                  \
+				__asm__("nop");      \
+			break;                   \
+		}
+uint32_t sigb1;
+uint32_t sigb2;
+uint32_t sigb3;
+uint32_t sigb4;
+uint32_t sigb5;
+uint32_t sigb6;
+uint32_t sigb7;
+uint32_t sigb8;
+
+uint32_t sig0x55b0;
+uint32_t sig0x55b1;
+uint32_t sig0x55b2;
+uint32_t sig0x55b3;
+uint32_t sig0x55b4;
+uint32_t sig0x55b5;
+uint32_t sig0x55b6;
+uint32_t sig0x55b7;
+
+static inline int check0xAA55()
+{
+// // midle b2
+	sigb2 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(21);
+
+// midle b3
+	sigb3 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(21);
+
+// midle b4
+	sigb4 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(10);
+
+// midle b5
+	sigb5 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(28);
+
+// midle b6
+	sigb6 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(21);
+
+// midle b7
+	sigb7 = (GPIOA->IDR & GPIO_PIN_10);
+
+	if(sigb2 != 0 || sigb3 == 0 || sigb4 != 0 || sigb5 == 0 || sigb6 != 0 || sigb7 == 0)
+		return 0;
+
+	while((GPIOA->IDR & GPIO_PIN_10));
+// start start bit
+
+	while(!(GPIOA->IDR & GPIO_PIN_10));
+// end start bit
+
+// 	waitCountMachineStep(25);
+
+// midle b0
+	sig0x55b0 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(15);
+
+// midle b1
+	sig0x55b1 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(16);
+
+// midle b2
+	sig0x55b2 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(26);
+
+return sig0x55b0 != 0 && sig0x55b1 == 0 && sig0x55b2 != 0;
+
+// midle b3
+	sig0x55b3 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(24);
+
+// midle b4
+	sig0x55b4 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(24);
+
+// midle b5
+	sig0x55b5 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(24);
+
+// midle b6
+	sig0x55b6 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(24);
+
+// midle b7
+	sig0x55b7 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(24);
+// return sig0x55b0 != 0;
+	return sig0x55b0 != 0 && sig0x55b1 == 0 && sig0x55b2 != 0 &&
+		sig0x55b3 == 0 && sig0x55b4 != 0 && sig0x55b5 == 0 && sig0x55b6 != 0 &&
+		sig0x55b7 == 0;
+
+// 	return 1;
+}
+
+static inline int check0xAA55bp1228800()
+{
+// // midle b2
+	sigb2 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(40);
+// 	return sigb2 == 0;
+
+// midle b3
+	sigb3 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(40);
+
+// midle b4
+	sigb4 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(40);
+
+// midle b5
+	sigb5 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(70);
+// 	return sigb2 == 0 && sigb3 != 0 && sigb4 == 0 && sigb5 != 0;
+
+// midle b6
+	sigb6 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(47);
+// 	return sigb2 == 0 && sigb3 != 0 && sigb4 == 0 && sigb5 != 0 && sigb6 == 0;
+
+// midle b7
+	sigb7 = (GPIOA->IDR & GPIO_PIN_10);
+
+	if(sigb2 != 0 || sigb3 == 0 || sigb4 != 0 || sigb5 == 0 || sigb6 != 0 || sigb7 == 0)
+		return 0;
+
+	while((GPIOA->IDR & GPIO_PIN_10));
+	while(!(GPIOA->IDR & GPIO_PIN_10));
+// end start bit
+
+	waitCountMachineStep(20);
+
+// midle b0
+	sig0x55b0 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(40);
+
+// midle b1
+	sig0x55b1 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(40);
+
+// midle b2
+	sig0x55b2 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(40);
+
+// midle b3
+	sig0x55b3 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(40);
+
+// midle b4
+	sig0x55b4 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(40);
+
+// midle b5
+	sig0x55b5 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(70);
+
+// midle b6
+	sig0x55b6 = (GPIOA->IDR & GPIO_PIN_10);
+	waitCountMachineStep(40);
+
+// midle b7
+	sig0x55b7 = (GPIOA->IDR & GPIO_PIN_10);
+
+	return sig0x55b0 != 0 && sig0x55b1 == 0 && sig0x55b2 != 0 &&
+		sig0x55b3 == 0 && sig0x55b4 != 0 && sig0x55b5 == 0 && sig0x55b6 != 0 &&
+		sig0x55b7 == 0;
+}
+
 int main(void)
 {
 		  /* USER CODE BEGIN 1 */
@@ -563,43 +994,43 @@ int previousNominalBitRateUart = 0;
 	while(1)
 	{
 		__HAL_UART_DISABLE_IT(&huart1, UART_IT_IDLE);
-
-		int txPrev, txCurrent;
+static uint32_t number = 0;
+int signature0xAA55 = 0;
+// 		uint32_t txPrev, txCurrent;
+// 		while((GPIOA->IDR & GPIO_PIN_10) != (uint32_t)GPIO_PIN_RESET);
 		while((GPIOA->IDR & GPIO_PIN_10) != (uint32_t)GPIO_PIN_RESET);
+		// begin start bit
+
+		stop_time_val = SysTick->VAL;
 		while((GPIOA->IDR & GPIO_PIN_10) == (uint32_t)GPIO_PIN_RESET);
-		int signature0xAA55 = 1;
-		GETMYTIME(start_time_val);
+		start_time_val = SysTick->VAL;
+		// end start bit + b0
+
 		while((GPIOA->IDR & GPIO_PIN_10) != (uint32_t)GPIO_PIN_RESET);
-		while((GPIOA->IDR & GPIO_PIN_10) == (uint32_t)GPIO_PIN_RESET);
-		GETMYTIME(txCurrent);
-		const int dt = txCurrent - start_time_val;
-// 		const int dtMax = dt + dt >> 1;
-// 		const int dtMin = dt - dt >> 1;
-		const int dtMax = (dt << 2) + dt;
-		const int dtMin = (dt << 2) - dt;
-		txPrev = txCurrent;
+		// end b1
+		uint32_t diff = stop_time_val - start_time_val;
 
-		int count = 2;
-		while(signature0xAA55 && count--)
-		{
-			while((GPIOA->IDR & GPIO_PIN_10) != (uint32_t)GPIO_PIN_RESET);
-			while((GPIOA->IDR & GPIO_PIN_10) == (uint32_t)GPIO_PIN_RESET);
-			GETMYTIME(txCurrent);
+		// midle b2
+		if(diff < 85)
+			signature0xAA55 = check0xAA55();
+		else if(diff < 140)
+			signature0xAA55 = check0xAA55bp1228800();
 
-// 			if((dt > 0.6 * (txCurrent - txPrev)) && (dt < 1.4 * (txCurrent - txPrev)))
-			if(dtMax > ((txCurrent - txPrev) << 2) && (dtMin < ((txCurrent - txPrev) << 2)))
-// 			if(dtMax > (txCurrent - txPrev) && dtMin < (txCurrent - txPrev))
-			{
-				txPrev = txCurrent;
-				continue;
-			}
+// 		stop_time_val = SysTick->VAL;
+// 			if(sigb2 != 0 || sigb3 == 0 || sigb4 != 0 || sigb5 == 0 || sigb6 != 0 || sigb7 == 0)
+// 				signature0xAA55 = 0;
+// 		start_time_val = SysTick->VAL;
 
-			signature0xAA55 = 0;
-		}
+// 		while((GPIOA->IDR & GPIO_PIN_10) == (uint32_t)GPIO_PIN_RESET);
+// 		waitCountMachineStep(14);
 
-		GETMYTIME(stop_time_val);
+// 		int signature0xAA55/* = check0xAA55(dt / 2)*/;
+// 		GETMYTIME(start_time_val);
+// 		HAL_Delay(number);
+// 		check0xAA55(24, number / 4);
+// 		GETMYTIME(stop_time_val);
 
-	uint32_t bitRateUart = (int)72e6 * 6 / (stop_time_val - start_time_val);
+	uint32_t bitRateUart = (int)72e6 * 2 / (stop_time_val - start_time_val);
 	int idxBitRate = 0;
 	uint32_t nominalBitRateUart = 0;
 
@@ -614,7 +1045,8 @@ int previousNominalBitRateUart = 0;
 	}
 
 // 	if(nominalBitRateUart != 0 && previousNominalBitRateUart != nominalBitRateUart)
-if(signature0xAA55 && nominalBitRateUart != 0)
+// if(/*signature0xAA55 && */nominalBitRateUart != 0)
+// if(signature0xAA55)
 	{
 		previousNominalBitRateUart = nominalBitRateUart;
 		huart1.Init.BaudRate = nominalBitRateUart;
@@ -622,12 +1054,15 @@ if(signature0xAA55 && nominalBitRateUart != 0)
 data_length = 0;
 
 	char buff[100];
-	sprintf(buff, "uart Baudrate : %lu bps, : %lu bps\n", nominalBitRateUart, bitRateUart);
+// 	sprintf(buff, "uart Baudrate : %lu bps, : %lu bps\n", nominalBitRateUart, bitRateUart);
+	sprintf(buff, "stop_time_val - start_time_val : %d, dt: %d, signature0xAA55: %d\n", stop_time_val - start_time_val, number, signature0xAA55);
 	HAL_UART_Transmit_IT(&huart2, buff, strlen(buff));
 	}
-	__HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
+// 	__HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
 
-HAL_Delay(1.1 * 8000 * 20 / huart1.Init.BaudRate);
+// HAL_Delay(1.1 * 8000 * 20 / huart1.Init.BaudRate);
+	HAL_Delay(10);
+number++;
 	}
 	return 0;
 }
