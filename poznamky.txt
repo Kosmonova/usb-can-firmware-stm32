@@ -1,0 +1,42 @@
+can bus bit rate
+1000 000 - time quanta in bit segment 1 ->  2 Times, segment 2 -> 1 Time, Prescaler 9
+ 800 000 - time quanta in bit segment 1 ->  3 Times, segment 2 -> 1 Time, Prescaler 9
+ 500 000 - time quanta in bit segment 1 ->  3 Times, segment 2 -> 4 Time, Prescaler 9
+ 400 000 - time quanta in bit segment 1 ->  3 Times, segment 2 -> 6 Time, Prescaler 9
+ 250 000 - time quanta in bit segment 1 -> 11 Times, segment 2 -> 4 Time, Prescaler 9
+ 200 000 - time quanta in bit segment 1 -> 15 Times, segment 2 -> 4 Time, Prescaler 9
+ 125 000 - time quanta in bit segment 1 -> 16 Times, segment 2 -> 1 Time, Prescaler 16
+ 100 000 - time quanta in bit segment 1 -> 16 Times, segment 2 -> 7 Time, Prescaler 15
+  50 000 - time quanta in bit segment 1 -> 16 Times, segment 2 -> 7 Time, Prescaler 30
+  20 000 - time quanta in bit segment 1 -> 16 Times, segment 2 -> 8 Time, Prescaler 72
+  10 000 - time quanta in bit segment 1 -> 16 Times, segment 2 -> 8 Time, Prescaler 144
+   5 000 - time quanta in bit segment 1 -> 16 Times, segment 2 -> 8 Time, Prescaler 288 
+
+sudo ip link set down can0
+sudo ip link set can0 type can bitrate 1000000 restart-ms 100
+sudo ip link set up can0
+
+sudo ip link set down can0
+sudo ip link set can0 type can bitrate 125000 restart-ms 100
+sudo ip link set up can0
+   
+sudo ip link set down can0
+sudo ip link set can0 type can bitrate 1000000 restart-ms 100
+sudo ip link set up can0
+
+sudo ip link set down can0
+sudo ip link set can0 type can bitrate 500000 restart-ms 100
+sudo ip link set up can0
+
+sudo ip link set down can0
+sudo ip link set can0 type can bitrate 5000 restart-ms 100
+sudo ip link set up can0
+
+candump -tz can0
+cansend can0 456#00FFAA5501020304
+cansend can0 1F334455#1122334455667788
+
+
+/home/johny/STM32CubeMX/STM32CubeMX
+st-flash write ./build/blink.bin  0x08000000
+
