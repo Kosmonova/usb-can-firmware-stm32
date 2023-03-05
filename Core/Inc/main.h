@@ -59,6 +59,10 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define BLUELED_Pin GPIO_PIN_13
 #define BLUELED_GPIO_Port GPIOC
+#define CAN_RECV_Pin GPIO_PIN_12
+#define CAN_RECV_GPIO_Port GPIOB
+#define CAN_SEND_Pin GPIO_PIN_5
+#define CAN_SEND_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
