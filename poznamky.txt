@@ -38,5 +38,5 @@ cansend can0 1F334455#1122334455667788
 
 
 /home/johny/STM32CubeMX/STM32CubeMX
-st-flash write ./build/blink.bin  0x08000000
+st-flash write ./build/usb-can-firmware.bin  0x08000000
 
