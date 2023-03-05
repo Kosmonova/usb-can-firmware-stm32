@@ -68,6 +68,8 @@ CANUSB_SPEED;
 
 CANUSB_FRAME canTypeFrame = CAN_BUS_FRAME_NONE;
 FRAME_FORMAT canFrameFormat = NONE_FORMAT;
+volatile int isRecvCanData = 0;
+volatile int isSendCanData = 0;
 
 #define BUFFER_SIZE 255
 UART_HandleTypeDef huart1;
@@ -101,6 +103,8 @@ static void MX_CAN_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
+int configureCanBus(uint8_t dataLen);
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -125,9 +129,16 @@ void USAR_UART_IDLECallback(UART_HandleTypeDef *huart)
 	//Calculate the length of the received data
 	uint8_t data_length  = BUFFER_SIZE - __HAL_DMA_GET_COUNTER(huart->hdmarx);   
 
-	uartToCanDataProcess(data_length);
-	uartToCanDataFormatFix20B(data_length);
-	configureCanBus(data_length);
+	do
+	{
+		if(configureCanBus(data_length))
+			break;
+
+		uartToCanDataProcess(data_length);
+		uartToCanDataFormatFix20B(data_length);
+		isRecvCanData = 1;
+	}
+	while(0);
 
 	//Zero Receiving Buffer
 	memset(receive_buff,0,data_length);                                            
@@ -148,33 +159,33 @@ static int generate_checksum(const unsigned char *data, int data_len)
   return checksum & 0xff;
 }
 
-void configureCanBus(uint8_t dataLen)
+int configureCanBus(uint8_t dataLen)
 {
 	TYPE_SETTING_LOW_4b typeSetting;
 
 	if(dataLen < 19)
-		return;
+		return 0;
 
 	if(receive_buff[0] != 0xAA || receive_buff[1] != 0x55)
-		return;
+		return 0;
 
 	if((receive_buff[2] & 0xF0) == 0x10)
 		canFrameFormat = NORMAL_FORMAT;
 	else if((receive_buff[2] & 0xF0) == 0x00)
 		canFrameFormat = FIXED_FORMAT;
 	else
-		return;
+		return 0;
 
 	typeSetting = receive_buff[2] & 0x0F;
 
 	if(receive_buff[4] != CANUSB_FRAME_STANDARD && receive_buff[4] !=
 		CANUSB_FRAME_EXTENDED)
-		return;
+		return 0;
 
 	canTypeFrame = receive_buff[4];
 
 	if(receive_buff[19] != generate_checksum(receive_buff + 2, 17))
-		return;
+		return 0;
 
 	if(typeSetting == CANUSB_CONFIG_TYPE_NORMAL)
 	{
@@ -273,12 +284,14 @@ void configureCanBus(uint8_t dataLen)
 		hcan.Init.Prescaler = *((uint16_t*)(receive_buff + 16));
 	}
 	else
-		return;
+		return 0;
 
 	if (HAL_CAN_Init(&hcan) != HAL_OK)
 		Error_Handler();
 
 	HAL_CAN_Start(&hcan);
+
+	return 1;
 }
 
 void uartToCanDataFormatFix20B(uint8_t dataLen)
@@ -381,7 +394,6 @@ void canToUartNormalFormat(CAN_HandleTypeDef *hcan)
 	CAN_RxHeaderTypeDef rxHeader; //CAN Bus Transmit Header
 	uint8_t canRX[8];  //CAN Bus Receive Buffer
 	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &rxHeader, canRX); //Receive CAN bus message to canRX buffer
-	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
 	uint8_t transmitBuffer[20];
 	int posBuffer = 0;
 	transmitBuffer[posBuffer++] = 0xAA;
@@ -454,6 +466,10 @@ __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		canToUartNormalFormat(hcan);
 	else if(canFrameFormat == FIXED_FORMAT)
 		canToUartFixed20Format(hcan);
+	else
+		return;
+
+	isSendCanData = 1;
 }
 
 /* USER CODE END 0 */
@@ -515,12 +531,34 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  HAL_GPIO_WritePin(CAN_SEND_GPIO_Port,CAN_SEND_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(CAN_RECV_GPIO_Port,CAN_RECV_Pin, GPIO_PIN_SET);
+
   while (1)
   {
-	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
-	HAL_GPIO_TogglePin(CAN_RECV_GPIO_Port,CAN_RECV_Pin);               //Toggle Gpio
-	HAL_GPIO_TogglePin(CAN_SEND_GPIO_Port,CAN_SEND_Pin);               //Toggle Gpio
-	HAL_Delay(1000);
+	if(isRecvCanData)
+	{
+		isRecvCanData = 0;
+		int idx = 5;
+		while(idx--)
+		{
+			HAL_GPIO_TogglePin(CAN_SEND_GPIO_Port,CAN_SEND_Pin);               //Toggle Gpio
+			HAL_Delay(25);
+		}
+		HAL_GPIO_WritePin(CAN_SEND_GPIO_Port,CAN_SEND_Pin, GPIO_PIN_SET);
+	}
+
+	if(isSendCanData)
+	{
+		isSendCanData = 0;
+		int idx = 5;
+		while(idx--)
+		{
+			HAL_GPIO_TogglePin(CAN_RECV_GPIO_Port,CAN_RECV_Pin);               //Toggle Gpio
+			HAL_Delay(25);
+		}
+		HAL_GPIO_WritePin(CAN_RECV_GPIO_Port,CAN_RECV_Pin, GPIO_PIN_SET);
+	}
   }
     /* USER CODE END WHILE */
 
@@ -663,26 +701,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(BLUELED_GPIO_Port, BLUELED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, CAN_RECV_Pin|CAN_SEND_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin : BLUELED_Pin */
-  GPIO_InitStruct.Pin = BLUELED_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(BLUELED_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : PA3 */
   GPIO_InitStruct.Pin = GPIO_PIN_3;
