@@ -517,16 +517,14 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE BEGIN 3 */
 	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
+	HAL_GPIO_TogglePin(CAN_RECV_GPIO_Port,CAN_RECV_Pin);               //Toggle Gpio
+	HAL_GPIO_TogglePin(CAN_SEND_GPIO_Port,CAN_SEND_Pin);               //Toggle Gpio
 	HAL_Delay(1000);
-    /* USER CODE END 3 */
   }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
-	HAL_Delay(1000);
   /* USER CODE END 3 */
 }
 
