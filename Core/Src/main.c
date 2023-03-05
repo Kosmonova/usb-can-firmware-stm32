@@ -25,6 +25,50 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
+typedef enum
+{
+	CAN_BUS_FRAME_NONE = 0x00,
+	CANUSB_FRAME_STANDARD = 0x01,
+	CANUSB_FRAME_EXTENDED = 0x02,
+}
+CANUSB_FRAME;
+
+typedef enum
+{
+	CANUSB_CONFIG_TYPE_NORMAL = 0x02,
+	CANUSB_CONFIG_TYPE_MANUAL = 0x03,
+}
+TYPE_SETTING_LOW_4b;
+
+typedef enum
+{
+	NONE_FORMAT = 0x00,
+	FIXED_FORMAT = 0x01,
+	NORMAL_FORMAT = 0x02,
+}
+FRAME_FORMAT;
+
+typedef enum
+{
+	CANUSB_SPEED_1000000 = 0x01,
+	CANUSB_SPEED_800000  = 0x02,
+	CANUSB_SPEED_500000  = 0x03,
+	CANUSB_SPEED_400000  = 0x04,
+	CANUSB_SPEED_250000  = 0x05,
+	CANUSB_SPEED_200000  = 0x06,
+	CANUSB_SPEED_125000  = 0x07,
+	CANUSB_SPEED_100000  = 0x08,
+	CANUSB_SPEED_50000   = 0x09,
+	CANUSB_SPEED_20000   = 0x0a,
+	CANUSB_SPEED_10000   = 0x0b,
+	CANUSB_SPEED_5000    = 0x0c,
+}
+CANUSB_SPEED;
+
+CANUSB_FRAME canTypeFrame = CAN_BUS_FRAME_NONE;
+FRAME_FORMAT canFrameFormat = NONE_FORMAT;
+
 #define BUFFER_SIZE 255
 UART_HandleTypeDef huart1;
 uint8_t receive_buff[255];                //Define the receive array
@@ -32,6 +76,7 @@ uint8_t receive_buff[255];                //Define the receive array
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -40,42 +85,8 @@ uint8_t receive_buff[255];                //Define the receive array
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
-
-typedef enum {
-	CAN_BUS_FRAME_NONE = 0x00,
-	CANUSB_FRAME_STANDARD = 0x01,
-	CANUSB_FRAME_EXTENDED = 0x02,
-} CANUSB_FRAME;
-
-typedef enum {
-	CANUSB_CONFIG_TYPE_NORMAL = 0x02,
-	CANUSB_CONFIG_TYPE_MANUAL = 0x03,
-} TYPE_SETTING_LOW_4b;
-
-typedef enum {
-	NONE_FORMAT = 0x00,
-	FIXED_FORMAT = 0x01,
-	NORMAL_FORMAT = 0x02,
-} FRAME_FORMAT;
-
-typedef enum {
-  CANUSB_SPEED_1000000 = 0x01,
-  CANUSB_SPEED_800000  = 0x02,
-  CANUSB_SPEED_500000  = 0x03,
-  CANUSB_SPEED_400000  = 0x04,
-  CANUSB_SPEED_250000  = 0x05,
-  CANUSB_SPEED_200000  = 0x06,
-  CANUSB_SPEED_125000  = 0x07,
-  CANUSB_SPEED_100000  = 0x08,
-  CANUSB_SPEED_50000   = 0x09,
-  CANUSB_SPEED_20000   = 0x0a,
-  CANUSB_SPEED_10000   = 0x0b,
-  CANUSB_SPEED_5000    = 0x0c,
-} CANUSB_SPEED;
-
-CANUSB_FRAME canTypeFrame = CAN_BUS_FRAME_NONE;
-FRAME_FORMAT canFrameFormat = NONE_FORMAT;
 CAN_HandleTypeDef hcan;
+
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
 
@@ -506,12 +517,16 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    /* USER CODE END WHILE */
+    /* USER CODE BEGIN 3 */
 	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
 	HAL_Delay(1000);
-    /* USER CODE BEGIN 3 */
-	
+    /* USER CODE END 3 */
   }
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+	HAL_GPIO_TogglePin(BLUELED_GPIO_Port,BLUELED_Pin);               //Toggle Gpio
+	HAL_Delay(1000);
   /* USER CODE END 3 */
 }
 
@@ -607,7 +622,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 2000000;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -653,12 +668,16 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(BLUELED_GPIO_Port, BLUELED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_3, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_12|GPIO_PIN_5, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : BLUELED_Pin */
   GPIO_InitStruct.Pin = BLUELED_Pin;
@@ -673,6 +692,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB12 PB5 */
+  GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_5;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 }
 
