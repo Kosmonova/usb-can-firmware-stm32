@@ -68,10 +68,12 @@ CANUSB_SPEED;
 
 CANUSB_FRAME canTypeFrame = CAN_BUS_FRAME_NONE;
 FRAME_FORMAT canFrameFormat = NONE_FORMAT;
-volatile int isRecvCanData = 0;
-volatile int isSendCanData = 0;
+volatile int countBlinkCanSedn = 0;
+volatile int countBlinkCanRecv = 0;
 
 #define BUFFER_SIZE 255
+#define NUMBER_BLINK_LED_INDICATE 5
+
 UART_HandleTypeDef huart1;
 uint8_t receive_buff[255];                //Define the receive array
 /* USER CODE END PTD */
@@ -89,6 +91,8 @@ uint8_t receive_buff[255];                //Define the receive array
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan;
 
+TIM_HandleTypeDef htim2;
+
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
 
@@ -101,6 +105,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_CAN_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 int configureCanBus(uint8_t dataLen);
@@ -136,7 +141,7 @@ void USAR_UART_IDLECallback(UART_HandleTypeDef *huart)
 
 		uartToCanDataProcess(data_length);
 		uartToCanDataFormatFix20B(data_length);
-		isRecvCanData = 1;
+		countBlinkCanRecv = NUMBER_BLINK_LED_INDICATE;
 	}
 	while(0);
 
@@ -469,7 +474,20 @@ __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 	else
 		return;
 
-	isSendCanData = 1;
+	countBlinkCanSedn = NUMBER_BLINK_LED_INDICATE;
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
+{
+	if(countBlinkCanSedn && --countBlinkCanSedn)
+		HAL_GPIO_TogglePin(CAN_SEND_GPIO_Port,CAN_SEND_Pin);
+	else
+		HAL_GPIO_WritePin(CAN_SEND_GPIO_Port,CAN_SEND_Pin, GPIO_PIN_SET);
+
+	if(countBlinkCanRecv && --countBlinkCanRecv)
+		HAL_GPIO_TogglePin(CAN_RECV_GPIO_Port,CAN_RECV_Pin);
+	else
+		HAL_GPIO_WritePin(CAN_RECV_GPIO_Port,CAN_RECV_Pin, GPIO_PIN_SET);
 }
 
 /* USER CODE END 0 */
@@ -517,11 +535,13 @@ int main(void)
   MX_DMA_Init();
   MX_CAN_Init();
   MX_USART1_UART_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   
 //     HAL_UART_Transmit_IT(&huart1, (uint8_t *)aTxStartMessage, sizeof(aTxStartMessage));
 //     HAL_UART_Receive_IT(&huart1, (uint8_t *)aRxBuffer, 10);
 //     HAL_UART_Receive_IT(&huart1, (uint8_t *)receive_buff, 255);
+  HAL_TIM_Base_Start_IT(&htim2);
   HAL_CAN_ConfigFilter(&hcan,&canfil); //Initialize CAN Filter
   HAL_CAN_Start(&hcan); //Initialize CAN Bus
   HAL_CAN_ActivateNotification(&hcan,CAN_IT_RX_FIFO0_MSG_PENDING);// Initialize CAN Bus Rx Interrupt
@@ -536,29 +556,6 @@ int main(void)
 
   while (1)
   {
-	if(isRecvCanData)
-	{
-		isRecvCanData = 0;
-		int idx = 5;
-		while(idx--)
-		{
-			HAL_GPIO_TogglePin(CAN_SEND_GPIO_Port,CAN_SEND_Pin);               //Toggle Gpio
-			HAL_Delay(25);
-		}
-		HAL_GPIO_WritePin(CAN_SEND_GPIO_Port,CAN_SEND_Pin, GPIO_PIN_SET);
-	}
-
-	if(isSendCanData)
-	{
-		isSendCanData = 0;
-		int idx = 5;
-		while(idx--)
-		{
-			HAL_GPIO_TogglePin(CAN_RECV_GPIO_Port,CAN_RECV_Pin);               //Toggle Gpio
-			HAL_Delay(25);
-		}
-		HAL_GPIO_WritePin(CAN_RECV_GPIO_Port,CAN_RECV_Pin, GPIO_PIN_SET);
-	}
   }
     /* USER CODE END WHILE */
 
@@ -603,6 +600,7 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+  HAL_RCC_MCOConfig(RCC_MCO, RCC_MCO1SOURCE_PLLCLK, RCC_MCODIV_1);
 }
 
 /**
@@ -639,6 +637,51 @@ static void MX_CAN_Init(void)
   /* USER CODE BEGIN CAN_Init 2 */
 
   /* USER CODE END CAN_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 250;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 7200;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
@@ -724,6 +767,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PA8 */
+  GPIO_InitStruct.Pin = GPIO_PIN_8;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
 }
 
