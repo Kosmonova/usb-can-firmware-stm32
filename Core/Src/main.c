@@ -141,7 +141,7 @@ void USAR_UART_IDLECallback(UART_HandleTypeDef *huart)
 
 		uartToCanDataProcess(data_length);
 		uartToCanDataFormatFix20B(data_length);
-		countBlinkCanRecv = NUMBER_BLINK_LED_INDICATE;
+		countBlinkCanSedn = NUMBER_BLINK_LED_INDICATE;
 	}
 	while(0);
 
@@ -474,7 +474,7 @@ __weak void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 	else
 		return;
 
-	countBlinkCanSedn = NUMBER_BLINK_LED_INDICATE;
+	countBlinkCanRecv = NUMBER_BLINK_LED_INDICATE;
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim)
