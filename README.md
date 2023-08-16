@@ -10,17 +10,17 @@ program, maybe for storing CAN data in ofline mode?
 
 ## downloading and compiling of project
 ```
-git clone usb-can-firmware-stm32
+git clone https://github.com/Kosmonova/usb-can-firmware-stm32
 cd usb-can-firmware-stm32
 make
 ```
 
-## flashing of binary file into stm32 using ST-LINK
+## flashing of binary file into stm32 using ST-LINK programmer
 ```
 st-flash write ./.pio/build/bluepill_f103c6/firmware.bin  0x08000000
 ```
 
-## flashing of binary file into stm32 using uart bootloader
+## flashing of binary file into stm32 without programmer
 Stm32 have build in bootloader for flashing through uart interface. The same
 uart interface is used also for transceivering of CAN bus data trought USB. This
 good behavior enables flashing of stm32 without any programmer.
