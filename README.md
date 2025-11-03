@@ -15,7 +15,7 @@ intensional bad original firmware, that will stops after few times and second
 case was some unintentional random rewriting flash memory for static
 discharge reason.
 
-Cost of adapter is maybe about 12EU in better case, and components on it's board
+Price of adapter is maybe about 12EU in better case, but components on it's board
 is not so expensive. And morever main processor wasn't damaged. First time, I
 searched on internet, if are availaible original or some other firmware for this
 device, but I found nothing. On other hand I found peaple on forums with the
@@ -73,7 +73,7 @@ make
 
 ## flashing of binary file into stm32 using ST-LINK programmer
 ```
-st-flash write ./.pio/build/bluepill_f103c6/firmware.bin  0x08000000
+st-flash write ./build/usb-can-firmware.bin 0x08000000
 ```
 
 ## flashing of binary file into stm32 without programmer
